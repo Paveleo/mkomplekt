@@ -1,0 +1,8 @@
+
+html, body, #root { height: 100%; }
+.shell{
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto 1fr auto; 
+}
+.main{ min-height: 0; }

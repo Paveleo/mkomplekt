@@ -1,0 +1,123 @@
+.wrap{
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 120px;  
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    column-gap: 64px;
+    align-items: start;
+}
+
+.left{ display: grid; gap: 24px; }
+
+.h1{
+    margin: 0;
+    color: #000;
+    font-family: Helvetica;
+    font-size: 64px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -2.56px;
+    text-transform: capitalize;
+}
+
+.lead{
+    margin: 0;
+    max-width: 688px;
+    color: #555;
+    font-family: Helvetica;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%;
+    letter-spacing: -1.28px;
+}
+
+.cols{
+    display: grid;
+    gap: 18px 40px;
+    grid-template-columns: 1fr 1fr;
+    max-width: 688px;
+}
+
+.col{ display: grid; gap: 6px; }
+.label{
+    color: #000;
+    font-family: Helvetica;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -1.28px;
+}
+.line{
+    color: #555;
+    font-family: Helvetica;
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%; 
+    letter-spacing: -0.96px;
+    }
+
+
+.card{
+  background: #f2f2f2;
+  border-radius: 8px;
+  padding: 24px;
+}
+.cardTitle{
+    margin: 0 0 6px 0;
+    color: #000;
+    font-family: Helvetica;
+    font-size: 64px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -2.56px;
+    text-transform: capitalize;
+}
+.cardSub{
+    margin: 0 0 16px 0;
+    color: #555;
+    font-family: Helvetica;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%; 
+    letter-spacing: -1.28px;
+}
+
+@media (max-width: 1100px){
+.wrap{
+    grid-template-columns: 1fr;
+    padding: 40px 24px 56px;
+    row-gap: 24px;
+}
+.cols{ grid-template-columns: 1fr; }
+  .h1{        font-size: 48px; letter-spacing: -1.92px; }
+  .lead{      font-size: 24px; line-height: 1.45; letter-spacing: -0.96px; }
+
+  .label{     font-size: 26px; letter-spacing: -1.04px; }
+  .line{      font-size: 18px; line-height: 1.45; letter-spacing: -0.72px; }
+
+  .cardTitle{ font-size: 48px; letter-spacing: -1.92px; }
+  .cardSub{   font-size: 24px; line-height: 1.45; letter-spacing: -0.96px; }
+}
+
+@media (max-width: 768px){
+  .h1{        font-size: 32px; letter-spacing: -1.28px; }
+  .lead{      font-size: 18px; line-height: 1.4;  letter-spacing: -0.6px; }
+
+  .label{     font-size: 20px; letter-spacing: -0.8px; }
+  .line{      font-size: 16px; line-height: 1.45; letter-spacing: -0.64px; }
+
+  .cardTitle{ font-size: 36px; letter-spacing: -1.44px; }
+  .cardSub{   font-size: 18px; line-height: 1.45; letter-spacing: -0.72px; }
+}
+
+@media (max-width: 360px){
+  .h1{ font-size: 28px; }
+  .cardTitle{ font-size: 32px; }
+}

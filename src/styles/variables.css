@@ -1,0 +1,9 @@
+:root{
+  --bg: #ffffff;
+  --text: #0f0f0f;
+  --muted: #6b6b6b;
+  --accent: #000000;
+  --footer-bg: #1e1916;
+  --radius: 8px;
+  --container: 1140px;
+}

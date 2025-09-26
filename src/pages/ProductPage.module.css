@@ -1,0 +1,89 @@
+.wrap{
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 80px) clamp(16px, 6vw, 120px);
+  box-sizing: border-box;
+}
+
+.back{
+  display:inline-block;
+  margin-bottom: 16px;
+  color:#6b6b6b;
+  text-decoration:none;
+  font: 400 16px/1.4 Helvetica, Arial, sans-serif;
+}
+.back:hover{ text-decoration: underline; }
+
+/* карточка */
+.card{
+  background:#fff;
+  border:1px solid #eee;
+  border-radius: 6px;
+  padding: clamp(16px, 3.6vw, 40px);
+  display:grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  column-gap: clamp(20px, 4vw, 48px);
+  align-items: start;
+}
+
+/* слева — фото */
+.media{
+  width:100%;
+  aspect-ratio: 4 / 3;
+  background:#f2f2f2;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.media img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+.noimg{
+  height:100%;
+  display:flex; align-items:center; justify-content:center;
+  color:#8a8a8a; font:400 16px/1.4 Helvetica, Arial, sans-serif;
+}
+
+/* справа — инфо */
+.info{ display:grid; gap: clamp(12px, 2vw, 16px); }
+
+.h1{
+  margin:0;
+  color:#000;
+  font-weight:400;
+  letter-spacing:-0.03em;
+  text-transform: none;
+  font-size: clamp(32px, 5.2vw, 72px);
+  line-height: 1.05; /* плотная, как на макете */
+}
+
+.note{
+  margin: 8px 0 0 0;
+  color:#6b6b6b;
+  font: 400 clamp(16px, 1.6vw, 18px)/1.6 Helvetica, Arial, sans-serif;
+}
+
+/* кнопки */
+.actions{
+  margin-top: clamp(10px, 2vw, 20px);
+  display:flex; gap: 16px; flex-wrap: wrap;
+}
+.btn{
+  display:inline-flex; align-items:center; gap:10px;
+  background:#000; color:#fff; text-decoration:none;
+  padding: 14px 20px;
+  font: 400 clamp(16px, 1.8vw, 18px)/1 Helvetica, Arial, sans-serif;
+  border: 0; border-radius: 2px;
+}
+.btn:hover{ filter: brightness(.95); }
+.ic{ width:18px; height:18px; fill: currentColor; }
+
+/* адаптив: стек на планшете и мобилке */
+@media (max-width: 1000px){
+  .card{ grid-template-columns: 1fr; row-gap: 20px; }
+  .media{ aspect-ratio: 16 / 10; }
+  .actions{ gap: 12px; }
+  .btn{ width: 100%; max-width: 320px; justify-content: center; }
+}

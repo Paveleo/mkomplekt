@@ -1,0 +1,86 @@
+.wrap{
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 120px;    
+}
+
+.title{
+    color: #000;
+    font-family: Helvetica;
+    font-size: 64px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: -2.56px;
+    text-transform: capitalize;
+    margin-top: 0;
+}
+
+.grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 28px; 
+    row-gap: 60px;   
+}
+
+.cell{ height: 100%;}
+.cellTall{ height: 360px; }         
+.cellShort{ height: 360px; }        
+
+.note{
+  align-content: center;
+  background: #fff;
+}
+.noteLg{
+  color: #555;
+  font-family: Helvetica;
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: -1.44px;
+  margin: 0;
+}
+.noteSm{
+  color: #555;
+  font-family: Helvetica;
+  font-size: 32px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: -1.44px;
+}
+.note u{ color: #000;
+font-family: Helvetica;
+font-size: 32px;
+font-style: normal;
+font-weight: 400;
+line-height: normal;
+letter-spacing: -1.44px;
+text-decoration-line: underline;
+text-decoration-style: solid;
+text-decoration-skip-ink: auto;
+text-decoration-thickness: auto;
+text-underline-offset: auto;
+text-underline-position: from-font; }
+
+/* адаптив */
+@media (max-width: 1200px){
+  .wrap{ padding: 48px 60px; }
+  .grid{ grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px){
+  .title{
+    font-size: 36px;
+  }
+}
+@media (max-width: 900px){
+  .wrap{ padding: 24px 24px 60px;}
+  .grid{ grid-template-columns: repeat(2, 1fr); }
+  .cellTall{ height: 300px; }
+  .cellShort{ height: 240px; }
+}
+@media (max-width: 600px){
+  .grid{ grid-template-columns: 1fr; }
+  .cellTall, .cellShort{ height: 240px; }
+}

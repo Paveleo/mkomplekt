@@ -1,0 +1,89 @@
+.form{
+  display: grid;
+  gap: 12px;
+}
+
+.input, .textarea, .btn{
+  width: 100%;
+}
+
+.input, .textarea{
+    color: #555;
+    font-family: Helvetica;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%; 
+    letter-spacing: -1.28px;
+    border: 0;
+    border-radius: 4px;
+    padding: 16px;
+    background: #e6e6e6;     
+}
+.input::placeholder,
+.textarea::placeholder{ color: #8a8a8a; }
+
+.textarea{ resize: vertical; min-height: 120px; }
+
+.btn{
+    color: #FFF;
+    font-family: Helvetica;
+    font-size: 32px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 150%;
+    letter-spacing: -1.28px;
+    text-transform: capitalize;
+
+    background: #000;
+    display: flex;
+    height: 100px;
+    padding: 16px 36px;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    align-self: stretch;
+    margin-top: 8px;
+    cursor: pointer;
+}
+.btn:hover{ opacity: .95; }
+@media (max-width: 1200px){
+  .form{ gap: 10px; }
+
+  .input, .textarea{
+    font-size: 24px;     
+    line-height: 1.45;    
+    letter-spacing: -0.96px;
+    padding: 14px;       
+  }
+
+  .btn{
+    font-size: 24px;     
+    height: 72px;         
+    padding: 14px 28px;
+  }
+}
+
+@media (max-width: 768px){
+  .form{ gap: 8px; }
+
+  .input, .textarea{
+    font-size: 18px;      
+    line-height: 1.4;
+    letter-spacing: -0.6px;
+    padding: 12px;
+  }
+  .textarea{ min-height: 100px; }
+
+  .btn{
+    font-size: 18px;
+    height: 56px;
+    padding: 12px 20px;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 360px){
+  .input, .textarea{ font-size: 16px; padding: 10px; }
+  .btn{ font-size: 16px; height: 48px; padding: 10px 16px; }
+}

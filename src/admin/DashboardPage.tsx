@@ -1,0 +1,1 @@
+export default function DashboardPage(){return <div><h1>Дашборд</h1><p>Добро пожаловать!</p></div>}

@@ -4,11 +4,6 @@ import s from './AboutPage.module.css';
 function AboutText() {
   return (
     <p className={s.lead}>
-      <span className={s.hl}>Мы верим</span>, что мебель — это больше, чем функциональность.
-      Это атмосфера, в которой просыпаешься, строишь планы,
-      <span className={s.hl}> обнимаешь близких</span> и просто живёшь. Именно поэтому каждое
-      изделие мы создаём с <span className={s.hl}>вниманием, любовью</span> и пониманием, что
-      настоящий дом начинается <span className={s.hl}>с деталей</span>.
     </p>
   );
 }
@@ -32,6 +27,7 @@ function Row({ img, reverse }: RowProps) {
   );
 }
 
+
 export default function AboutPage() {
   return (
     <section className={s.wrap}>
@@ -41,10 +37,7 @@ export default function AboutPage() {
       <Row img={Images.About1} />
 
       {/* 2: фото слева, текст справа */}
-      <Row img={Images.About2} reverse />
 
-      {/* 3: текст слева, фото справа */}
-      <Row img={Images.About3} />
     </section>
   );
 }

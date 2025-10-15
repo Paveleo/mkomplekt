@@ -32,9 +32,15 @@ export default function CategoryPage(){
           <div className={s.grid}>
             {products?.map((p:any) => (
               <ProductCard
-                key={p.id}
-                item={{ id: p.id, slug: p.slug, title: p.title, images: p.images }}
-              />
+  key={p.id}
+  item={{
+    id: p.id,
+    slug: p.slug,
+    title: p.title,
+    images: p.images
+  }}
+/>
+
             ))}
           </div>
         </>

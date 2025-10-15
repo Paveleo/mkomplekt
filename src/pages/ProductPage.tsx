@@ -34,9 +34,9 @@ export default function ProductPage() {
   const p = q.data as any;
   const cover = p.product_images?.[0]?.url;
 
-  // Текст для кнопок (можно подставить номер телефона/юзернейм)
   const msg = encodeURIComponent(`Здравствуйте! Интересует товар: ${p.title}`);
-  const waHref = `https://wa.me/89141011645?text=${msg}`;                       
+  const waHref = `https://api.whatsapp.com/send?phone=79141011645&text=${msg}`;
+                     
   // const tgHref = `https://t.me/share/url?url=${location.href}&text=${msg}`;
 
   return (

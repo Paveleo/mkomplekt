@@ -1,3 +1,4 @@
+
 :root{
   --wrap-max: 1920px;
   --pad-y: clamp(32px, 6vw, 80px);
@@ -30,12 +31,10 @@
 .wrap{
   max-width: var(--wrap-max);
   margin-inline: auto;
-
   padding-block-start: calc(var(--pad-y) + env(safe-area-inset-top));
   padding-block-end:   calc(var(--pad-y) + env(safe-area-inset-bottom));
   padding-inline-start: calc(var(--pad-x) + env(safe-area-inset-left));
   padding-inline-end:   calc(var(--pad-x) + env(safe-area-inset-right));
-
   box-sizing: border-box;
   background: var(--bg);
   color: var(--text);

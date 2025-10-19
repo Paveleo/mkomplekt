@@ -21,7 +21,7 @@ export default function ContactsPage() {
 
           <div className={s.col}>
             <div className={s.label}>Наш адрес</div>
-            <div className={s.line}>Окружное дорога, д. 59/1Б</div>
+            <div className={s.line}>Окружная дорога, д. 59/1Б</div>
             <div className={s.line}>г. Якутск, Республика (Саха)</div>
           </div>
 

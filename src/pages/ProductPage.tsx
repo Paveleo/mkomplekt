@@ -34,8 +34,33 @@ export default function ProductPage() {
   const p = q.data as any;
   const cover = p.product_images?.[0]?.url;
 
-  const msg = encodeURIComponent(`Здравствуйте! Интересует товар: ${p.title}`);
-  const waHref = `https://api.whatsapp.com/send?phone=79141011645&text=${msg}`;
+  const phone = '79141011645';
+  const text = `Здравствуйте! Интересует товар: ${p.title}`;
+  const enc = encodeURIComponent(text);
+
+  const waDeep = `whatsapp://send?phone=${phone}&text=${enc}`;         // запускает приложение
+  const waHttp = `https://wa.me/${phone}?text=${enc}`;                 // резерв
+  const waWeb  = `https://web.whatsapp.com/send?phone=${phone}&text=${enc}`; // для десктопа
+
+  function openWhatsApp(e: { preventDefault: () => void; }) {
+    e.preventDefault();
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // 1) пробуем открыть приложение
+      window.location.href = waDeep;
+
+      // 2) если приложение не открылось — через ~800 мс откроем wa.me
+      setTimeout(() => {
+        // Если deep-link не сработал, пользователь останется в браузере — отправим его на wa.me
+        window.location.href = waHttp;
+      }, 800);
+    } else {
+      // Десктоп
+      window.open(waWeb, '_blank', 'noopener');
+    }
+  }
+
                      
   // const tgHref = `https://t.me/share/url?url=${location.href}&text=${msg}`;
 
@@ -60,13 +85,10 @@ export default function ProductPage() {
           </p>
 
           <div className={s.actions}>
-            <a className={s.btn} href={waHref} target="_blank" rel="noreferrer">
-              <svg viewBox="0 0 24 24" className={s.ic} aria-hidden>
-                <path d="M16.1 13.6c-.2-.1-1.3-.6-1.5-.7-.2-.1-.4-.1-.6.1s-.7.7-.8.9c-.1.2-.3.2-.5.1-1.3-.6-2.4-1.6-3.1-2.9-.1-.2 0-.4.1-.5.1-.1.2-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.6-1.5-.8-2-.2-.4-.4-.3-.6-.3h-.5c-.2 0-.5.1-.7.3-.2.2-.7.7-.7 1.8s.8 2.1.9 2.2c.1.2 1.6 2.5 3.9 3.5.5.2.9.4 1.2.5.5.2 1 .2 1.4.1.4-.1 1.3-.5 1.5-1 .2-.5.2-1 .1-1.1-.1-.2-.2-.2-.4-.3Z" />
-                <path d="M12 2C6.5 2 2 6.2 2 11.3c0 1.8.5 3.6 1.5 5.1L2 22l5.8-1.5c1.4.8 3 .1 4.2.1 5.5 0 10-4.2 10-9.3S17.5 2 12 2Zm0 16.8c-1.2 0-2.3-.3-3.3-.8l-.2-.1-3.4.9.9-3.2-.2-.3c-.9-1.3-1.4-2.8-1.4-4.4C4.4 7 7.8 4 12 4s7.6 3 7.6 6.8-3.4 8-7.6 8Z" />
-              </svg>
+            <a className={s.btn} href={waHttp} onClick={openWhatsApp} rel="noopener">
               Написать в Ватсап
             </a>
+
 
             {/* <a className={s.btn} href={tgHref} target="_blank" rel="noreferrer">
               <svg viewBox="0 0 24 24" className={s.ic} aria-hidden>

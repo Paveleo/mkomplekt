@@ -38,25 +38,29 @@ export default function ProductPage() {
   const text = `Здравствуйте! Интересует товар: ${p.title}`;
   const enc = encodeURIComponent(text);
 
-  const waDeep = `whatsapp://send?phone=${phone}&text=${enc}`;         // запускает приложение
-  const waHttp = `https://wa.me/${phone}?text=${enc}`;                 // резерв
-  const waWeb  = `https://web.whatsapp.com/send?phone=${phone}&text=${enc}`; // для десктопа
+  const waDeep = `whatsapp://send?phone=${phone}&text=${enc}`;
+  const waHttp = `https://wa.me/${phone}?text=${enc}`;
+  const waWeb  = `https://web.whatsapp.com/send?phone=${phone}&text=${enc}`;
 
-  function openWhatsApp(e: { preventDefault: () => void; }) {
+  function openWhatsApp(e) {
     e.preventDefault();
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    const ua = navigator.userAgent;
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(ua);
+    const isInAppWebView = /(FBAN|FBAV|Instagram|Line|VKClient|OkApp|Telegram)/i.test(ua);
 
     if (isMobile) {
-      // 1) пробуем открыть приложение
+      if (isInAppWebView) {
+        window.location.href = waHttp;
+        return;
+      }
+
       window.location.href = waDeep;
 
-      // 2) если приложение не открылось — через ~800 мс откроем wa.me
       setTimeout(() => {
-        // Если deep-link не сработал, пользователь останется в браузере — отправим его на wa.me
         window.location.href = waHttp;
       }, 800);
     } else {
-      // Десктоп
       window.open(waWeb, '_blank', 'noopener');
     }
   }
@@ -88,6 +92,7 @@ export default function ProductPage() {
             <a className={s.btn} href={waHttp} onClick={openWhatsApp} rel="noopener">
               Написать в Ватсап
             </a>
+
 
 
             {/* <a className={s.btn} href={tgHref} target="_blank" rel="noreferrer">

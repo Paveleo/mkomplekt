@@ -89,17 +89,10 @@ export default function AboutPage() {
     <section className={s.wrap}>
       <h1 className={s.h1}>О Нас</h1>
 
-      {/* 1: текст слева, фото справа */}
       <Row img={Images.About1} />
 
-      {/* 2: фото слева, текст справа */}
-      <Row img={Images.About2} reverse />
-
-      {/* 3: текст слева, фото справа */}
-      <Row img={Images.About3} />
       <Row2 img={Images.About2} reverse />
 
-      {/* 3: текст слева, фото справа */}
       <Row3 img={Images.About3} />
     </section>
   );

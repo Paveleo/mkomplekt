@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { Link } from 'react-router-dom';
@@ -20,7 +20,8 @@ export default function ProductsPage() {
   const q = useQuery({
     queryKey: ['products-admin', catFilter],
     queryFn: async () => {
-      let req = supabase.from('products')
+      let req = supabase
+        .from('products')
         .select('id, title, slug, is_published, category_id, sort')
         .eq('is_published', true)
         .order('category_id', { ascending: true })
@@ -34,7 +35,9 @@ export default function ProductsPage() {
   });
 
   const [rows, setRows] = useState<any[]>([]);
-  useEffect(() => { if (q.data) setRows(q.data); }, [q.data]);
+  useEffect(() => {
+    if (q.data) setRows(q.data);
+  }, [q.data]);
 
   const move = (index: number, delta: number) => {
     const targetIndex = index + delta;
@@ -77,37 +80,71 @@ export default function ProductsPage() {
         <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
           <option value="">— Все категории —</option>
           {catsQ.data?.map((c: any) => (
-            <option value={c.id} key={c.id}>{c.title}</option>
+            <option value={c.id} key={c.id}>
+              {c.title}
+            </option>
           ))}
         </select>
         <button onClick={saveOrder}>Сохранить порядок</button>
       </div>
 
-      {q.isLoading ? <p>Загрузка…</p> : q.isError ? <p>Ошибка…</p> : (
-        <table style={{ width: '100%', marginTop: 12 }}>
+      {q.isLoading ? (
+        <p>Загрузка…</p>
+      ) : q.isError ? (
+        <p>Ошибка…</p>
+      ) : (
+        <table style={{ width: '100%', marginTop: 12, borderCollapse: 'collapse' }}>
           <thead>
             <tr>
-              <th style={{width:90}}>Порядок</th>
-              <th>Название</th>
-              <th>Публ.</th>
-              <th style={{width:160}}></th>
+              <th
+                style={{
+                  width: 90,
+                  textAlign: 'left',
+                  padding: '8px 4px',
+                  borderBottom: '1px solid #e5e7eb',
+                }}
+              >
+                Порядок
+              </th>
+              <th style={{ textAlign: 'left', padding: '8px 4px', borderBottom: '1px solid #e5e7eb' }}>
+                Название
+              </th>
+              <th style={{ textAlign: 'left', padding: '8px 4px', borderBottom: '1px solid #e5e7eb' }}>
+                Публ.
+              </th>
+              <th style={{ width: 160, borderBottom: '1px solid #e5e7eb' }}></th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.id}>
-                <td>
-                  <button onClick={() => move(i, -1)} disabled={i === 0}>↑</button>{' '}
-                  <button onClick={() => move(i, +1)} disabled={i === rows.length - 1}>↓</button>
-                </td>
-                <td>{p.title}</td>
-                <td>{p.is_published ? 'Да' : 'Нет'}</td>
-                <td>
-                  <Link to={`/admin/products/${p.id}`} style={{ marginRight: 8 }}>Ред.</Link>
-                  <button onClick={() => handleDelete(p.id)}>Удалить</button>
-                </td>
-              </tr>
-            ))}
+            {rows.map((p, i) => {
+              const isLast = i === rows.length - 1;
+              const cellStyle: CSSProperties = {
+                borderBottom: isLast ? 'none' : '1px solid #e5e7eb', // линия между товарами
+                padding: '8px 4px',
+                verticalAlign: 'middle',
+              };
+
+              return (
+                <tr key={p.id}>
+                  <td style={cellStyle}>
+                    <button onClick={() => move(i, -1)} disabled={i === 0}>
+                      ↑
+                    </button>{' '}
+                    <button onClick={() => move(i, +1)} disabled={i === rows.length - 1}>
+                      ↓
+                    </button>
+                  </td>
+                  <td style={cellStyle}>{p.title}</td>
+                  <td style={cellStyle}>{p.is_published ? 'Да' : 'Нет'}</td>
+                  <td style={{ ...cellStyle, width: 160 }}>
+                    <Link to={`/admin/products/${p.id}`} style={{ marginRight: 8 }}>
+                      Ред.
+                    </Link>
+                    <button onClick={() => handleDelete(p.id)}>Удалить</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

@@ -98,6 +98,16 @@ export default function ProductsPage() {
             <tr>
               <th
                 style={{
+                  width: 56,
+                  textAlign: 'center',
+                  padding: '8px 4px',
+                  borderBottom: '1px solid #e5e7eb',
+                }}
+              >
+                №
+              </th>
+              <th
+                style={{
                   width: 90,
                   textAlign: 'left',
                   padding: '8px 4px',
@@ -126,6 +136,7 @@ export default function ProductsPage() {
 
               return (
                 <tr key={p.id}>
+                  <td style={{ ...cellStyle, width: 56, textAlign: 'center', opacity: 0.8 }}>{i + 1}</td>
                   <td style={cellStyle}>
                     <button onClick={() => move(i, -1)} disabled={i === 0}>
                       ↑

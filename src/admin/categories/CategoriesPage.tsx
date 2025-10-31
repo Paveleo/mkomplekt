@@ -4,24 +4,34 @@ import { supabase } from '@/lib/supabase';
 import CategoryForm from './CategoryForm';
 import { arrayMove } from '../../utils/arrayMove';
 
+type Row = {
+  id: string;
+  title: string;
+  slug: string | null;
+  parent_id: string | null;
+  sort: number | null;
+  image_url?: string | null;
+};
+
 export default function CategoriesPage() {
   const qc = useQueryClient();
+  const [editing, setEditing] = useState<Row | null>(null);
 
   const q = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('categories')
-        .select('id, title, slug, parent_id, sort')
+        .select('id, title, slug, parent_id, sort, image_url') // добавили image_url
         .order('parent_id', { ascending: true, nullsFirst: true })
         .order('sort', { ascending: true })
         .order('title', { ascending: true });
       if (error) throw error;
-      return data || [];
+      return (data || []) as Row[];
     },
   });
 
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   useEffect(() => { if (q.data) setRows(q.data); }, [q.data]);
 
   const move = (index: number, delta: number) => {
@@ -46,15 +56,14 @@ export default function CategoriesPage() {
     const { error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' });
     if (error) { alert(error.message); return; }
 
-    // Инвалидация всех связанных списков
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ['categories'] }),             
-      qc.invalidateQueries({ queryKey: ['categories-all'] }),          
-      qc.invalidateQueries({ queryKey: ['categories-for-products'] }), 
-      qc.invalidateQueries({ queryKey: ['root-categories'] }),     
+      qc.invalidateQueries({ queryKey: ['categories'] }),
+      qc.invalidateQueries({ queryKey: ['categories-all'] }),
+      qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
+      qc.invalidateQueries({ queryKey: ['root-categories'] }),
       qc.invalidateQueries({
         predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
-      }), // витрина: все подкатегории
+      }),
     ]);
 
     alert('Порядок категорий сохранён');
@@ -79,7 +88,9 @@ export default function CategoriesPage() {
   return (
     <div>
       <h1>Категории</h1>
-      <CategoryForm />
+
+      {/* Форма умеет и добавлять, и редактировать */}
+      <CategoryForm editing={editing} onDone={() => setEditing(null)} />
 
       {q.isLoading ? <p>Загрузка…</p> : q.isError ? <p>Ошибка загрузки</p> : (
         <>
@@ -90,7 +101,7 @@ export default function CategoriesPage() {
                 <th>Название</th>
                 <th>Slug</th>
                 <th>Parent</th>
-                <th style={{ width: 120 }}></th>
+                <th style={{ width: 160 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -103,7 +114,10 @@ export default function CategoriesPage() {
                   <td>{c.title}</td>
                   <td>{c.slug}</td>
                   <td>{c.parent_id ? c.parent_id : '—'}</td>
-                  <td><button onClick={() => handleDelete(c.id)}>Удалить</button></td>
+                  <td>
+                    <button onClick={() => setEditing(c)} style={{ marginRight: 8 }}>Ред.</button>
+                    <button onClick={() => handleDelete(c.id)}>Удалить</button>
+                  </td>
                 </tr>
               ))}
             </tbody>

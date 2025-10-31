@@ -51,7 +51,8 @@ export default function CategoryForm() {
   }
 
   reset();
-  qc.invalidateQueries({ queryKey: ['categories'] });
+  qc.invalidateQueries({ queryKey: ['categories'] }),
+  qc.invalidateQueries({ queryKey: ['categories-all'] });
 };
 
 

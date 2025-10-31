@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 import CategoryForm from './CategoryForm';
 import { arrayMove } from '../../utils/arrayMove';
 
-
 export default function CategoriesPage() {
   const qc = useQueryClient();
 
@@ -25,31 +24,39 @@ export default function CategoriesPage() {
   const [rows, setRows] = useState<any[]>([]);
   useEffect(() => { if (q.data) setRows(q.data); }, [q.data]);
 
-  // перемещаем внутри одной «группы родителя», чтобы не ломать иерархию
   const move = (index: number, delta: number) => {
     const cur = rows[index];
     const targetIndex = index + delta;
     if (targetIndex < 0 || targetIndex >= rows.length) return;
-    // перемещать только если у соседей тот же parent_id
     if (rows[targetIndex].parent_id !== cur.parent_id) return;
     setRows(arrayMove(rows, index, targetIndex));
   };
 
   const saveOrder = async () => {
-    // присвоим sort по порядку в рамках каждого parent_id
     const payload: { id: string; sort: number }[] = [];
-    let counters = new Map<string | null, number>();
+    const counters = new Map<string | null, number>();
 
     for (const r of rows) {
       const key = (r.parent_id ?? null) as string | null;
-      const next = (counters.get(key) ?? 0);
+      const next = counters.get(key) ?? 0;
       payload.push({ id: r.id, sort: next });
       counters.set(key, next + 1);
     }
 
     const { error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' });
     if (error) { alert(error.message); return; }
-    await qc.invalidateQueries({ queryKey: ['categories'] });
+
+    // Инвалидация всех связанных списков
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['categories'] }),             
+      qc.invalidateQueries({ queryKey: ['categories-all'] }),          
+      qc.invalidateQueries({ queryKey: ['categories-for-products'] }), 
+      qc.invalidateQueries({ queryKey: ['root-categories'] }),     
+      qc.invalidateQueries({
+        predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
+      }), // витрина: все подкатегории
+    ]);
+
     alert('Порядок категорий сохранён');
   };
 
@@ -57,7 +64,16 @@ export default function CategoriesPage() {
     if (!confirm('Удалить категорию? Убедитесь, что нет подкатегорий/товаров.')) return;
     const { error } = await supabase.from('categories').delete().eq('id', id);
     if (error) return alert(error.message);
-    qc.invalidateQueries({ queryKey: ['categories'] });
+
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['categories'] }),
+      qc.invalidateQueries({ queryKey: ['categories-all'] }),
+      qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
+      qc.invalidateQueries({ queryKey: ['root-categories'] }),
+      qc.invalidateQueries({
+        predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
+      }),
+    ]);
   };
 
   return (
@@ -70,19 +86,19 @@ export default function CategoriesPage() {
           <table style={{ width: '100%', marginTop: 12 }}>
             <thead>
               <tr>
-                <th style={{width:90}}>Порядок</th>
+                <th style={{ width: 90 }}>Порядок</th>
                 <th>Название</th>
                 <th>Slug</th>
                 <th>Parent</th>
-                <th style={{width:120}}></th>
+                <th style={{ width: 120 }}></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c, i) => (
                 <tr key={c.id}>
                   <td>
-                    <button onClick={() => move(i, -1)} disabled={i === 0 || (rows[i-1]?.parent_id !== c.parent_id)}>↑</button>{' '}
-                    <button onClick={() => move(i, +1)} disabled={i === rows.length-1 || (rows[i+1]?.parent_id !== c.parent_id)}>↓</button>
+                    <button onClick={() => move(i, -1)} disabled={i === 0 || (rows[i - 1]?.parent_id !== c.parent_id)}>↑</button>{' '}
+                    <button onClick={() => move(i, +1)} disabled={i === rows.length - 1 || (rows[i + 1]?.parent_id !== c.parent_id)}>↓</button>
                   </td>
                   <td>{c.title}</td>
                   <td>{c.slug}</td>

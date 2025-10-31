@@ -2,11 +2,12 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
 
 type Form = {
   title: string;
   sku?: string;
-  category_id: string; // обязателен
+  category_id: string; 
   price?: number | string;
   thickness?: number | string;
   color?: string;
@@ -21,6 +22,7 @@ export default function ProductForm() {
   const nav = useNavigate();
   const { register, handleSubmit, setValue } = useForm<Form>();
   const [cats, setCats] = useState<any[]>([]);
+  const qc = useQueryClient();
 
   useEffect(() => {
     (async () => {
@@ -34,12 +36,14 @@ export default function ProductForm() {
       }
     })();
   }, [id, setValue]);
+  
 
   const onSubmit = async (v: Form) => {
+  try {
     const payload = {
       title: v.title,
       sku: v.sku || null,
-      category_id: v.category_id || null, 
+      category_id: v.category_id || null,
       price: v.price === '' || v.price === undefined ? null : Number(v.price),
       thickness: v.thickness === '' || v.thickness === undefined ? null : Number(v.thickness),
       color: v.color || null,
@@ -48,59 +52,64 @@ export default function ProductForm() {
       is_published: !!v.is_published,
     };
 
-    if (!payload.category_id) {
-      alert('Выберите категорию');
-      return;
-    }
+    if (!payload.category_id) { alert('Выберите категорию'); return; }
 
     let product: any;
     if (id) {
-      const { data, error } = await supabase.from('products').update(payload).eq('id', id).select().single();
-      if (error) return alert(error.message);
+      const { data, error } = await supabase.from('products')
+        .update(payload).eq('id', id).select().single();
+      if (error) throw error;
       product = data;
     } else {
-      const { data, error } = await supabase.from('products').insert([payload]).select().single();
-      if (error) return alert(error.message);
+      const { data, error } = await supabase.from('products')
+        .insert([payload]).select().single();
+      if (error) throw error;
       product = data;
     }
 
     if (v.images && v.images.length) {
-  const bucket = supabase.storage.from('products');
+      const bucket = supabase.storage.from('products');
+      const dir = String(product.id);
 
-  // Папка только по ID — ASCII и неизменная
-  const dir = String(product.id);
+      await supabase.from('product_images').delete().eq('product_id', product.id);
+      const { data: toRemove } = await bucket.list(dir);
+      if (toRemove?.length) {
+        await bucket.remove(toRemove.map(o => `${dir}/${o.name}`));
+      }
 
-  for (let i = 0; i < v.images.length; i++) {
-    const file = v.images[i];
-    const dot = file.name.lastIndexOf('.');
-    const ext = (dot >= 0 ? file.name.slice(dot) : '.jpg').toLowerCase();
+      for (let i = 0; i < v.images.length; i++) {
+        const file = v.images[i];
+        const dot = file.name.lastIndexOf('.');
+        const ext = (dot >= 0 ? file.name.slice(dot) : '.jpg').toLowerCase();
+        const path = `${dir}/image-${i + 1}-${Date.now()}${ext}`;
 
-    // Уникальное имя, чтобы не ловить кеш и не затирать старое
-    const path = `${dir}/image-${i + 1}-${Date.now()}${ext}`;
+        const { error: upErr } = await bucket.upload(path, file, {
+          upsert: true,
+          contentType: file.type || undefined,
+        });
+        if (upErr) {
+          console.error('UPLOAD ERROR:', upErr.message);
+          alert('Ошибка загрузки изображения: ' + upErr.message);
+          continue; 
+        }
 
-    const { error: upErr } = await bucket.upload(path, file, {
-      upsert: true,
-      contentType: file.type || undefined,
-    });
-    if (upErr) {
-      console.error('UPLOAD ERROR:', upErr.message);
-      alert('Ошибка загрузки изображения: ' + upErr.message);
-      continue;
+        const { data: pub } = bucket.getPublicUrl(path);
+        await supabase.from('product_images')
+          .insert([{ product_id: product.id, url: pub.publicUrl, sort: i }]);
+      }
     }
 
-    // Bucket public → берём публичный URL
-    const { data: pub } = bucket.getPublicUrl(path);
-    const url = pub.publicUrl;
-
-    await supabase
-      .from('product_images')
-      .insert([{ product_id: product.id, url, sort: i }]);
-  }
-}
-
-
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['products-admin'] }),
+      qc.invalidateQueries({ queryKey: ['products'] }),
+    ]);
     nav('/admin/products');
-  };
+
+  } catch (e: any) {
+    alert(e?.message ?? 'Ошибка сохранения');
+  }
+};
+
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'grid', gap: 12, maxWidth: 720 }}>

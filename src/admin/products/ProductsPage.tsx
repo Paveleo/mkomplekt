@@ -47,23 +47,39 @@ export default function ProductsPage() {
   };
 
   const saveOrder = async () => {
-    const payload: { id: string; sort: number }[] = [];
-    if (catFilter) {
-      rows.forEach((r, i) => payload.push({ id: r.id, sort: i }));
-    } else {
-      const counters = new Map<string, number>();
-      for (const r of rows) {
-        const next = counters.get(r.category_id) ?? 0;
-        payload.push({ id: r.id, sort: next });
-        counters.set(r.category_id, next + 1);
-      }
-    }
+  const pairs: { id: string; sort: number }[] = [];
 
-    const { error } = await supabase.from('products').upsert(payload, { onConflict: 'id' });
-    if (error) return alert(error.message);
-    await qc.invalidateQueries({ queryKey: ['products-admin'] });
-    alert('Порядок товаров сохранён');
-  };
+  if (catFilter) {
+    rows.forEach((r, i) => pairs.push({ id: r.id, sort: i }));
+  } else {
+    const counters = new Map<string, number>();
+    for (const r of rows) {
+      const next = counters.get(r.category_id) ?? 0;
+      pairs.push({ id: r.id, sort: next });
+      counters.set(r.category_id, next + 1);
+    }
+  }
+
+  const results = await Promise.all(
+    pairs.map(p =>
+      supabase.from('products').update({ sort: p.sort }).eq('id', p.id)
+    )
+  );
+
+  const firstErr = results.find(r => (r as any).error)?.error;
+  if (firstErr) {
+    alert(firstErr.message);
+    return;
+  }
+
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: ['products-admin'] }),
+    qc.invalidateQueries({ queryKey: ['products'] }),
+  ]);
+
+  alert('Порядок товаров сохранён');
+};
+
 
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить товар?')) return;

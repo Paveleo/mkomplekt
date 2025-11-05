@@ -2,6 +2,10 @@ import Hero_bg from './Hero.png';
 import AboutSplitIMG from './AboutSplit.png';
 import Ava from './Ava.png';
 import Slider1 from './Slider1.png';
+import Slider2 from './Slider2.png';
+import Slider3 from './Slider3.png';
+import Slider4 from './Slider4.png';
+import nofoto from './nofoto.png';
 import KitchenCTA from './KitchenCTA.png';
 import FooterImage from './FooterImage.png';
 import About1 from './about-1.png';
@@ -13,6 +17,10 @@ const Images = {
     AboutSplitIMG,
     Ava,
     Slider1,
+    Slider2,
+    Slider3,
+    Slider4,
+    nofoto,
     KitchenCTA,
     FooterImage,
     About1,

@@ -1,56 +1,118 @@
-import CategoryCard from '@/components/cards/CategoryCard';
-import { useRootCategories } from '@/hooks/useCategories';
-import s from './CatalogPage.module.css';
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useCatalogTree } from '@/hooks/useCategories'
+import s from './CatalogPage.module.css'
 
-function NoteTile() {
-  return (
-    <div className={s.note}>
-      <p className={s.noteLg}>
-        Там, где <u>стиль встречает функциональность</u>
-      </p>
-      <p className={s.noteSm}>
-        Больше, чем мебель — <u>ваше пространство</u>.
-      </p>
-    </div>
-  );
-}
+const PREVIEW_LIMIT = 6
 
 export default function CatalogPage() {
-  const { data } = useRootCategories();
+  const { data, isLoading, isError } = useCatalogTree()
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
-  const cards = (data ?? []).slice(0, 7);
+  const toggleExpanded = (slug: string) => {
+    setExpanded((current) => ({
+      ...current,
+      [slug]: !current[slug],
+    }))
+  }
 
-  const mojkiIndex = cards.findIndex((c: any) => {
-    const t = (c?.title || '').toLowerCase();
-    const s = (c?.slug  || '').toLowerCase();
-    return t.includes('мойки') || s.includes('mojki') || s.includes('sink') || s.includes('sinks');
-  });
-
-  const insertAt = mojkiIndex >= 0 ? mojkiIndex + 1 : Math.min(cards.length, 6);
-
-  const withNote: (any | { _type: 'note' })[] = [...cards];
-  withNote.splice(insertAt, 0, { _type: 'note' });
+  const totalSections = data?.length ?? 0
+  const totalSubsections = data?.reduce((total, category) => total + category.children.length, 0) ?? 0
 
   return (
     <section className={s.wrap}>
-      <h1 className={s.title}>Наш<br/>Каталог</h1>
+      <div className={s.hero}>
+        <div className={s.heroCopy}>
+          <p className={s.eyebrow}>Каталог</p>
+          <h1 className={s.title}>Материалы, фурнитура и комплектующие для мебели</h1>
+          <p className={s.subtitle}>
+            Все разделы собраны в одной витрине: быстро переходите в нужную категорию, открывайте
+            подкатегории и находите товары без лишних переходов.
+          </p>
+        </div>
 
-      <div className={s.grid}>
-        {withNote.map((item, idx) => {
-          if ((item as any)?._type === 'note') {
-            return (
-              <div key={`note-${idx}`} className={`${s.cell} ${s.cellShort}`}>
-                <NoteTile />
-              </div>
-            );
-          }
-          return (
-            <div key={(item as any).id} className={`${s.cell} ${idx < 4 ? s.cellTall : s.cellShort}`}>
-              <CategoryCard item={item} />
-            </div>
-          );
-        })}
+        <div className={s.heroMeta}>
+          <div className={s.metaCard}>
+            <span className={s.metaValue}>{totalSections}</span>
+            <span className={s.metaLabel}>основных разделов</span>
+          </div>
+          <div className={s.metaCard}>
+            <span className={s.metaValue}>{totalSubsections}</span>
+            <span className={s.metaLabel}>подкатегорий в каталоге</span>
+          </div>
+        </div>
+      </div>
+
+      <div className={s.headingAccent} aria-hidden="true">
+        <span className={s.headingRule} />
+      </div>
+
+      <div className={s.panel}>
+        {isLoading ? <div className={s.message}>Загружаем каталог...</div> : null}
+
+        {isError ? <div className={s.message}>Не удалось загрузить каталог.</div> : null}
+
+        {!isLoading && !isError && (!data || data.length === 0) ? (
+          <div className={s.message}>Категории пока не добавлены.</div>
+        ) : null}
+
+        {!isLoading && !isError && data?.length ? (
+          <div className={s.grid}>
+            {data.map((category, index) => {
+              const hasMore = category.children.length > PREVIEW_LIMIT
+              const isExpanded = Boolean(expanded[category.slug])
+              const visibleChildren = isExpanded
+                ? category.children
+                : category.children.slice(0, PREVIEW_LIMIT)
+
+              return (
+                <article key={category.id} className={s.card}>
+                  <div className={s.cardTop}>
+                    <span className={s.cardIndex}>{String(index + 1).padStart(2, '0')}</span>
+                    <span className={s.cardCount}>
+                      {category.children.length
+                        ? `${category.children.length} подкатегорий`
+                        : 'Прямой переход в раздел'}
+                    </span>
+                  </div>
+
+                  <Link to={`/catalog/${category.slug}`} className={s.categoryLink}>
+                    {category.title}
+                  </Link>
+
+                  {visibleChildren.length ? (
+                    <ul className={s.links}>
+                      {visibleChildren.map((child) => (
+                        <li key={child.id}>
+                          <Link to={`/catalog/${category.slug}/${child.slug}`} className={s.childLink}>
+                            {child.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Link to={`/catalog/${category.slug}`} className={s.childLink}>
+                      Открыть раздел
+                    </Link>
+                  )}
+
+                  {hasMore ? (
+                    <button
+                      type="button"
+                      className={s.toggle}
+                      onClick={() => toggleExpanded(category.slug)}
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? 'Скрыть список' : 'Показать все'}
+                      <span className={`${s.chevron} ${isExpanded ? s.chevronUp : ''}`} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+        ) : null}
       </div>
     </section>
-  );
+  )
 }

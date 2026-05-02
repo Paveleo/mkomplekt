@@ -1,30 +1,88 @@
-import { Outlet, Navigate, Link } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { Navigate, NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '@/auth/AuthProvider'
+import styles from './admin.module.css'
 
-export default function AdminLayout(){
-  const [loading,setLoading]=useState(true)
-  const [authed,setAuthed]=useState(false)
+export default function AdminLayout() {
+  const { loading, user, signOut } = useAuth()
 
-  useEffect(()=>{
-    supabase.auth.getSession().then(({data})=>{ setAuthed(!!data.session); setLoading(false) })
-  },[])
+  if (loading) {
+    return (
+      <div className={styles.loginPage}>
+        <div className={styles.loginCard}>
+          <p className={styles.eyebrow}>Admin access</p>
+          <h1 className={styles.title}>Проверяем доступ</h1>
+          <p className={styles.subtitle}>
+            Загружаем сессию администратора и подключаем панель управления.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
-  if(loading) return null
-  if(!authed) return <Navigate to="/admin/login" replace/>
+  if (!user?.is_admin) {
+    return <Navigate to="/admin/login" replace />
+  }
+
+  const links = [
+    { to: '/admin', label: 'Дашборд', description: 'Краткая сводка по магазину', end: true },
+    { to: '/admin/orders', label: 'Заказы', description: 'Оформления из корзины' },
+    { to: '/admin/requests', label: 'Заявки', description: 'Сообщения из формы контактов' },
+    { to: '/admin/categories', label: 'Категории', description: 'Структура каталога' },
+    { to: '/admin/products', label: 'Товары', description: 'Карточки и публикация' },
+    { to: '/admin/reviews', label: 'Отзывы', description: 'Отзывы, фото и порядок' },
+    { to: '/admin/import', label: 'Импорт', description: 'Загрузка каталога из Excel' },
+  ]
+
   return (
-    <div style={{display:'grid',gridTemplateColumns:'240px 1fr',minHeight:'100vh'}}>
-      <aside style={{borderRight:'1px solid #eee',padding:16}}>
-        <b>Админка</b>
-        <nav style={{display:'grid',gap:8,marginTop:16}}>
-          <Link to="/admin">Дашборд</Link>
-          <Link to="/admin/categories">Категории</Link>
-          <Link to="/admin/products">Товары</Link>
-          <Link to="/admin/import">Импорт</Link>
+    <div className={styles.shell}>
+      <aside className={styles.sidebar}>
+        <div className={styles.brand}>
+          <span className={styles.brandLabel}>Admin</span>
+          <h1 className={styles.brandTitle}>МебельКомплект. Панель</h1>
+          <p className={styles.brandText}>
+            Управление каталогом, заказами, заявками, отзывами и публикацией контента на сайте.
+          </p>
+        </div>
+
+        <nav className={styles.nav}>
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.end}
+              className={({ isActive }) =>
+                `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`.trim()
+              }
+            >
+              <span className={styles.navTitle}>{link.label}</span>
+              <span className={styles.navSubtitle}>{link.description}</span>
+            </NavLink>
+          ))}
         </nav>
-        <button style={{marginTop:16}} onClick={async()=>{ await supabase.auth.signOut(); location.href='/admin/login' }}>Выйти</button>
+
+        <div className={styles.sidebarFooter}>
+          <div className={styles.userCard}>
+            <div className={styles.userMeta}>
+              <span className={styles.userLabel}>Текущий пользователь</span>
+              <span className={styles.userValue}>{user.full_name || user.email}</span>
+            </div>
+          </div>
+
+          <button
+            className={styles.buttonGhost}
+            onClick={async () => {
+              await signOut()
+              location.href = '/admin/login'
+            }}
+          >
+            Выйти
+          </button>
+        </div>
       </aside>
-      <main style={{padding:24}}><Outlet/></main>
+
+      <main className={styles.content}>
+        <Outlet />
+      </main>
     </div>
   )
 }

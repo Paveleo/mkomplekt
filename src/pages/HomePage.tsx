@@ -3,6 +3,7 @@ import CatalogGrid from '@/components/sections/CatalogGrid'
 import AboutSplit from '@/components/sections/AboutSplit';
 import USP from '@/components/sections/USP'
 import Reviews from '@/components/sections/Reviews'
+import TwoGisReviews from '@/components/sections/TwoGisReviews'
 import CTA from '@/components/sections/CTA'
 
 export default function HomePage(){
@@ -13,6 +14,7 @@ export default function HomePage(){
       <AboutSplit/>
       <USP/>
       <Reviews/>
+      <TwoGisReviews/>
       <CTA/>
     </>
   )

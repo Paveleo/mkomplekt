@@ -1,105 +1,119 @@
-import { useEffect, useState } from 'react';
-import s from './Reviews.module.css';
-import Images from '../../images';
-
-type Item = {
-  name: string;
-  avatar: string;
-  image: string;
-  text: string[];
-};
-
-const items: Item[] = [
-  {
-    name: 'Туйаара Пермякова',
-    avatar: Images.nofoto, 
-    image:  Images.Slider1,
-    text: [
-      'Очень долго не могла найти мебель, которая сочетала бы в себе стиль, качество и уют. Здесь всё совпало с первого касания — от общения до финального результата. Ребята учли каждую мелочь: цвет, материалы, даже освещение в комнате.',
-      'Получилось не просто красиво, а живое пространство, в котором хочется быть. Спасибо за тёплый подход и настоящую любовь к своему делу.',
-    ],
-  },
-  {
-    name: 'Светлана',
-    avatar: Images.nofoto, 
-    image:  Images.Slider2,
-    text: [
-      'Воспользовались услугами распила, кромкования, присадки мебели всей квартиры в компании МебельКомплект. Заказ оформили у менеджера Льва. Хотим выразить благодарность сотрудникам данной компании, не было ни одного расхождения с проектом по количеству фурнитуры, распилу и присадочных размеров👍🏻',
-    ],
-  },
-  {
-    name: 'Зинаида Слепцова',
-    avatar: Images.nofoto, 
-    image:  Images.Slider3,
-    text: [
-      'Благодарю мебель комплект 😍😍😍 Изготовили прихожку за одну неделю, низкие цены и качественные материалы 👍🏻 буду заказывать у вас еще и спасибо большое проектировщику которые очень качественно проконсультировал ☺️👍🏻',
-    ],
-  },
-  {
-    name: 'Валентина Неустроева',
-    avatar: Images.nofoto, 
-    image:  Images.Slider4,
-    text: [
-      'Не в первый раз заказываем мебель у этой компании👍🏻😀 Очень качественные материалы, выгодная стоимость, оперативная работа☺️ Отдельная благодарность нашему проектировщику Лене ❤️',
-    ],
-  },
-];
+import { useEffect, useMemo, useState } from 'react'
+import { useReviews } from '@/hooks/useReviews'
+import s from './Reviews.module.css'
 
 export default function Reviews() {
-  const [i, setI] = useState(0);
-  const cur = items[i];
+  const { data } = useReviews()
+  const items = data || []
 
-  const prev = () => setI((v) => (v - 1 + items.length) % items.length);
-  const next = () => setI((v) => (v + 1) % items.length);
+  const [index, setIndex] = useState(0)
 
-  // стрелки с клавиатуры
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') prev();
-      if (e.key === 'ArrowRight') next();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+    setIndex((value) => (items.length ? Math.min(value, items.length - 1) : 0))
+  }, [items.length])
+
+  const current = items[index] || null
+  const progress = useMemo(
+    () => (items.length ? `${((index + 1) / items.length) * 100}%` : '0%'),
+    [index, items.length],
+  )
+
+  const prev = () => setIndex((value) => (value - 1 + items.length) % items.length)
+  const next = () => setIndex((value) => (value + 1) % items.length)
+
+  useEffect(() => {
+    if (!items.length) return
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') prev()
+      if (event.key === 'ArrowRight') next()
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [items.length])
+
+  if (!current) {
+    return null
+  }
 
   return (
     <section className={s.wrap}>
-      <h2 className={s.h2}>Отзывы Наших Клиентов</h2>
+      <div className={s.heading}>
+        <p className={s.eyebrow}>Отзывы</p>
+        <h2 className={s.title}>Отзывы наших клиентов</h2>
+        <p className={s.subtitle}>
+          Реальные впечатления о материалах, сервисе и результате. Без шаблонных фраз,
+          только опыт людей, которые уже собрали свой интерьер вместе с нами.
+        </p>
+      </div>
 
-      <div className={s.grid}>
-        {/* ЛЕВАЯ КОЛОНКА */}
-        <div className={s.left}>
+      <div className={s.panel}>
+        <div className={s.mediaCard}>
           <div className={s.author}>
-            <img className={s.avatar} src={cur.avatar} alt={cur.name} />
-            <div>
-              <div className={s.name}>{cur.name}</div>
+            {current.avatar_url ? (
+              <img className={s.avatar} src={current.avatar_url} alt={current.name} />
+            ) : (
+              <div className={s.avatarPlaceholder} aria-hidden="true">
+                {current.name.charAt(0).toUpperCase()}
+              </div>
+            )}
+
+            <div className={s.authorInfo}>
+              <div className={s.name}>{current.name}</div>
+              <div className={s.meta}>
+                {[current.role || 'Клиент', current.city].filter(Boolean).join(', ')}
+              </div>
             </div>
           </div>
 
-          <div className={s.photo}>
-            <img src={cur.image} alt={cur.name} />
-          </div>
+          {current.image_url ? (
+            <div className={s.photo}>
+              <img src={current.image_url} alt={current.name} />
+            </div>
+          ) : (
+            <div className={s.photoPlaceholder}>
+              <span>Фото проекта</span>
+            </div>
+          )}
         </div>
 
-        {/* ПРАВАЯ КОЛОНКА */}
-        <div className={s.right}>
-          {cur.text.map((p, idx) => (
-            <p className={s.p} key={idx}>{p}</p>
-          ))}
+        <article className={s.quoteCard}>
+          <div className={s.quoteMark} aria-hidden="true">
+            “
+          </div>
 
-          <div className={s.controls}>
-            <button className={s.navBtn} onClick={prev} aria-label="Предыдущий">﹤</button>
+          <div className={s.text}>
+            {current.text.map((paragraph) => (
+              <p className={s.paragraph} key={paragraph}>
+                {paragraph}
+              </p>
+            ))}
+          </div>
 
-            <div className={s.counter}>
-              <span className={s.cur}>{i + 1}</span>
-              <span className={s.line} />
-              <span className={s.total}>{items.length}</span>
+          <div className={s.footer}>
+            <div className={s.progressBlock}>
+              <div className={s.counter}>
+                <span className={s.counterCurrent}>{index + 1}</span>
+                <span className={s.counterDivider}>/</span>
+                <span className={s.counterTotal}>{items.length}</span>
+              </div>
+              <div className={s.progressTrack}>
+                <span className={s.progressFill} style={{ width: progress }} />
+              </div>
             </div>
 
-            <button className={s.navBtn} onClick={next} aria-label="Следующий">﹥</button>
+            <div className={s.controls}>
+              <button type="button" className={s.navBtn} onClick={prev} aria-label="Предыдущий отзыв">
+                ←
+              </button>
+              <button type="button" className={s.navBtn} onClick={next} aria-label="Следующий отзыв">
+                →
+              </button>
+            </div>
           </div>
-        </div>
+        </article>
       </div>
     </section>
-  );
+  )
 }

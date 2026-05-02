@@ -1,0 +1,43 @@
+from django.urls import path, re_path
+
+from . import views
+
+
+urlpatterns = [
+    path("auth/register", views.register_view),
+    path("auth/login", views.login_view),
+    path("auth/logout", views.logout_view),
+    path("auth/me", views.me_view),
+    path("admin/login", views.admin_login_view),
+    path("admin/me", views.admin_me_view),
+    path("catalog/root-categories", views.root_categories_view),
+    re_path(r"^catalog/category/(?P<slug>[^/]+)$", views.category_detail_view),
+    re_path(r"^catalog/children/(?P<slug>[^/]+)$", views.children_categories_view),
+    path("catalog/tree", views.catalog_tree_view),
+    re_path(r"^catalog/products/by-category/(?P<slug>[^/]+)$", views.products_by_category_view),
+    re_path(r"^catalog/products/(?P<slug>[^/]+)$", views.product_details_view),
+    path("reviews", views.reviews_view),
+    path("contact-requests", views.contact_requests_view),
+    path("account/profile", views.profile_view),
+    path("account/cart", views.cart_view),
+    path("account/cart/items", views.add_cart_item_view),
+    path("account/cart/items/<uuid:item_id>", views.cart_item_detail_view),
+    path("account/orders", views.create_order_view),
+    path("admin/categories", views.admin_categories_view),
+    path("admin/categories/options", views.admin_categories_options_view),
+    path("admin/categories/order", views.admin_categories_order_view),
+    path("admin/categories/<uuid:category_id>", views.admin_category_detail_view),
+    path("admin/products", views.admin_products_view),
+    path("admin/products/order", views.admin_products_order_view),
+    path("admin/products/<uuid:product_id>", views.admin_product_detail_view),
+    path("admin/reviews", views.admin_reviews_view),
+    path("admin/reviews/order", views.admin_reviews_order_view),
+    path("admin/reviews/<uuid:review_id>", views.admin_review_detail_view),
+    path("admin/contact-requests", views.admin_contact_requests_view),
+    path("admin/contact-requests/<uuid:contact_request_id>", views.admin_contact_request_detail_view),
+    path("admin/contact-requests/<uuid:contact_request_id>/status", views.admin_contact_request_status_view),
+    path("admin/orders", views.admin_orders_view),
+    path("admin/orders/<uuid:order_id>", views.admin_order_detail_view),
+    path("admin/orders/<uuid:order_id>/status", views.admin_order_status_view),
+    path("admin/import/products", views.admin_import_products_view),
+]

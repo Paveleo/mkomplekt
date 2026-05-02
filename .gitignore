@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.local
+backend/.env
+backend/.env.production
+backend/.venv/
+backend/media/
+backend/db.sqlite3
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/routers/__pycache__/
+backend/alembic/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/

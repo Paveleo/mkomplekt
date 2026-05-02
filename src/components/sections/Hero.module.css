@@ -1,64 +1,272 @@
-
-.hero{
-  position: relative;
-  height: 100vh;        
-  height: 100dvh;        
-  min-height: 640px;
-  display: grid;
-  align-items: end;
-  background-size: cover;
-  background-position: center;
+.hero {
+  padding: clamp(24px, 3vw, 40px) 0 clamp(48px, 6vw, 84px);
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 240px);
 }
 
-.container{
+.container {
   max-width: 1920px;
   margin: 0 auto;
-  padding-inline: clamp(16px, 8vw, 120px);
-  padding-bottom: clamp(48px, 12vh, 120px);
+  padding: 0 clamp(16px, 6vw, 120px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.02fr) minmax(360px, 0.98fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: center;
 }
 
-.hh1{
-  color:#fff;
-  font-weight:400;
-  font-size: clamp(34px, 6vw, 72px);
-  line-height:1.1;
-  letter-spacing:-0.02em;
-  margin: 0 0 16px 0;
-
-  max-inline-size: min(100%, 22ch);
-  text-wrap: balance;             
-  overflow-wrap:anywhere;
+.copy {
+  min-width: 0;
+  max-width: 760px;
 }
 
-.pp{
-  color:#d3d3d3;
-  font-weight:400;
-  font-size: clamp(16px, 2vw, 24px);
-  line-height:1.5;
-  letter-spacing:-0.02em;
-  margin:0;
-
-  max-inline-size: min(100%, 60ch);
-  overflow-wrap:anywhere;
-}
-.hh1,
-.pp{
-  max-inline-size: none !important;
-  max-width: none !important;
-  width: auto;             
-  overflow-wrap: anywhere;  
-  word-break: break-word;
-}
-@media (max-width: 1000px){
-  .hero{ height: clamp(400px, 58dvh, 640px); }
-  .container{ padding-inline: clamp(16px, 6vw, 48px); padding-bottom: clamp(28px, 8vh, 72px); }
-  .hh1{ font-size: clamp(28px, 5vw, 40px); max-inline-size: 24ch; }
-  .pp { font-size: clamp(14px, 2.2vw, 18px); max-inline-size: 50ch; }
+.eyebrow {
+  margin: 0 0 16px;
+  color: #8b7355;
+  font: 500 13px / 1.2 Helvetica, Arial, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-@media (max-width: 600px){
-  .hero{ height: clamp(360px, 54dvh, 520px); }
-  .container{ padding-inline: 16px; padding-bottom: 32px; }
-  .hh1{ font-size: clamp(24px, 7vw, 32px); line-height:1.18; max-inline-size: 16ch; margin-bottom: 10px; }
-  .pp { font-size: clamp(14px, 4.2vw, 16px); max-inline-size: 38ch; line-height:1.45; }
+.title {
+  margin: 0;
+  color: #111111;
+  font: 400 clamp(38px, 6vw, 82px) / 0.94 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
+}
+
+.text {
+  margin: 20px 0 0;
+  max-width: 58ch;
+  color: #5f6470;
+  font: 400 clamp(17px, 1.8vw, 22px) / 1.58 Helvetica, Arial, sans-serif;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 22px;
+  border-radius: 8px;
+  font: 500 16px / 1 Helvetica, Arial, sans-serif;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.primary {
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 16px 30px rgba(17, 24, 39, 0.14);
+}
+
+.secondary {
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  color: #111111;
+}
+
+.primary:hover,
+.secondary:hover {
+  transform: translateY(-1px);
+}
+
+.accent {
+  width: min(420px, 100%);
+  margin-top: 30px;
+}
+
+.rule {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 20px;
+}
+
+.rule::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(17, 24, 39, 0) 0%,
+    rgba(17, 24, 39, 0.14) 14%,
+    rgba(17, 24, 39, 0.2) 50%,
+    rgba(17, 24, 39, 0.14) 86%,
+    rgba(17, 24, 39, 0) 100%
+  );
+  transform: translateY(-50%);
+}
+
+.rule::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 108px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(17, 24, 39, 0.95) 0%, rgba(17, 24, 39, 0.7) 100%);
+  transform: translate(-50%, -50%);
+}
+
+.mediaWrap {
+  min-width: 0;
+}
+
+.mediaCard {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 4.4;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 12px;
+  background: #f4f4f4;
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.08);
+}
+
+.media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mediaOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.04) 0%, rgba(17, 24, 39, 0.28) 100%);
+}
+
+.mediaBadge {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: rgba(17, 24, 39, 0.42);
+  backdrop-filter: blur(12px);
+  color: #ffffff;
+}
+
+.mediaBadgeLabel {
+  font: 500 12px / 1.2 Helvetica, Arial, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.82;
+}
+
+.mediaBadgeTitle {
+  font: 500 clamp(18px, 1.8vw, 28px) / 1.15 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.factsWrap {
+  max-width: 1920px;
+  margin: clamp(24px, 4vw, 36px) auto 0;
+  padding: 0 clamp(16px, 6vw, 120px);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.factCard {
+  padding: 22px 24px;
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 249, 249, 0.96) 100%);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.05);
+}
+
+.factValue {
+  color: #111111;
+  font: 500 clamp(28px, 3vw, 40px) / 1 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.05em;
+}
+
+.factLabel {
+  margin: 10px 0 0;
+  color: #5f6470;
+  font: 400 15px / 1.55 Helvetica, Arial, sans-serif;
+}
+
+@media (max-width: 1180px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .copy {
+    max-width: none;
+  }
+
+  .mediaCard {
+    aspect-ratio: 16 / 10;
+  }
+}
+
+@media (max-width: 840px) {
+  .facts {
+    grid-template-columns: 1fr;
+  }
+
+  .mediaCard {
+    border-radius: 10px;
+  }
+
+  .mediaBadge {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: 8px;
+  }
+
+  .container,
+  .factsWrap {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .title {
+    font-size: 34px;
+    line-height: 0.98;
+  }
+
+  .text {
+    font-size: 15px;
+  }
+
+  .primary,
+  .secondary {
+    width: 100%;
+  }
+
+  .factCard {
+    padding: 18px 18px 20px;
+    border-radius: 10px;
+  }
 }

@@ -1,123 +1,197 @@
-.wrap{
-    max-width: 1920px;
-    margin: 0 auto;
-    padding: 120px;  
-    display: grid;
-    grid-template-columns: 1.05fr 1fr;
-    column-gap: 64px;
-    align-items: start;
+.wrap {
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: clamp(26px, 3.4vw, 48px) clamp(16px, 6vw, 120px) clamp(56px, 6vw, 88px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 500px);
+  gap: clamp(26px, 3vw, 34px);
+  align-items: start;
+  background: linear-gradient(180deg, #fafafa 0%, #ffffff 220px);
 }
 
-.left{ display: grid; gap: 24px; }
-
-.h1{
-    margin: 0;
-    color: #000;
-    font-family: Helvetica;
-    font-size: 64px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    letter-spacing: -2.56px;
-    text-transform: capitalize;
+.left {
+  min-width: 0;
 }
 
-.lead{
-    margin: 0;
-    max-width: 688px;
-    color: #555;
-    font-family: Helvetica;
-    font-size: 32px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 150%;
-    letter-spacing: -1.28px;
+.heading {
+  max-width: 760px;
 }
 
-.cols{
-    display: grid;
-    gap: 18px 40px;
-    grid-template-columns: 1fr 1fr;
-    max-width: 688px;
+.eyebrow,
+.cardEyebrow {
+  margin: 0 0 14px;
+  color: #8b7355;
+  font: 500 13px / 1.2 Helvetica, Arial, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
-.col{ display: grid; gap: 6px; }
-.label{
-    color: #000;
-    font-family: Helvetica;
-    font-size: 32px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    letter-spacing: -1.28px;
-}
-.line{
-    color: #555;
-    font-family: Helvetica;
-    font-size: 24px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 150%; 
-    letter-spacing: -0.96px;
-    }
-
-
-.card{
-  background: #f2f2f2;
-  border-radius: 8px;
-  padding: 24px;
-}
-.cardTitle{
-    margin: 0 0 6px 0;
-    color: #000;
-    font-family: Helvetica;
-    font-size: 64px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: normal;
-    letter-spacing: -2.56px;
-    text-transform: capitalize;
-}
-.cardSub{
-    margin: 0 0 16px 0;
-    color: #555;
-    font-family: Helvetica;
-    font-size: 32px;
-    font-style: normal;
-    font-weight: 400;
-    line-height: 150%; 
-    letter-spacing: -1.28px;
+.h1 {
+  margin: 0;
+  color: #111111;
+  font: 400 clamp(38px, 5.8vw, 70px) / 0.96 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.06em;
+  text-wrap: balance;
 }
 
-@media (max-width: 1100px){
-.wrap{
+.lead {
+  max-width: 700px;
+  margin: 16px 0 0;
+  color: #5f6470;
+  font: 400 clamp(17px, 1.8vw, 21px) / 1.55 Helvetica, Arial, sans-serif;
+}
+
+.headingAccent {
+  width: min(420px, 100%);
+  margin-top: 24px;
+}
+
+.headingRule {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 20px;
+}
+
+.headingRule::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(17, 24, 39, 0) 0%,
+    rgba(17, 24, 39, 0.12) 14%,
+    rgba(17, 24, 39, 0.2) 50%,
+    rgba(17, 24, 39, 0.12) 86%,
+    rgba(17, 24, 39, 0) 100%
+  );
+  transform: translateY(-50%);
+}
+
+.headingRule::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 108px;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(17, 24, 39, 0.95) 0%, rgba(17, 24, 39, 0.72) 100%);
+  transform: translate(-50%, -50%);
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: clamp(24px, 3vw, 32px);
+}
+
+.infoCard,
+.card {
+  border: 1px solid rgba(17, 24, 39, 0.08);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 249, 249, 0.96) 100%);
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.05);
+}
+
+.infoCard {
+  display: grid;
+  gap: 10px;
+  padding: 22px 24px;
+}
+
+.infoCardWide {
+  grid-column: 1 / -1;
+}
+
+.label {
+  color: #8b7355;
+  font: 600 12px / 1.2 Helvetica, Arial, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.link,
+.textStrong {
+  margin: 0;
+  color: #111111;
+  font: 700 clamp(23px, 2vw, 28px) / 1.18 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.link {
+  width: fit-content;
+  transition: opacity 0.2s ease;
+}
+
+.link:hover {
+  opacity: 0.68;
+}
+
+.text,
+.cardSub {
+  margin: 0;
+  color: #5f6470;
+  font: 400 16px / 1.62 Helvetica, Arial, sans-serif;
+}
+
+.card {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 14px;
+  padding: clamp(22px, 2.4vw, 30px);
+}
+
+.cardTitle {
+  margin: 0;
+  color: #111111;
+  font: 400 clamp(34px, 4vw, 54px) / 0.98 Helvetica, Arial, sans-serif;
+  letter-spacing: -0.05em;
+}
+
+@media (max-width: 1100px) {
+  .wrap {
     grid-template-columns: 1fr;
-    padding: 40px 24px 56px;
-    row-gap: 24px;
-}
-.cols{ grid-template-columns: 1fr; }
-  .h1{        font-size: 48px; letter-spacing: -1.92px; }
-  .lead{      font-size: 24px; line-height: 1.45; letter-spacing: -0.96px; }
+  }
 
-  .label{     font-size: 26px; letter-spacing: -1.04px; }
-  .line{      font-size: 18px; line-height: 1.45; letter-spacing: -0.72px; }
-
-  .cardTitle{ font-size: 48px; letter-spacing: -1.92px; }
-  .cardSub{   font-size: 24px; line-height: 1.45; letter-spacing: -0.96px; }
+  .card {
+    position: static;
+  }
 }
 
-@media (max-width: 768px){
-  .h1{        font-size: 32px; letter-spacing: -1.28px; }
-  .lead{      font-size: 18px; line-height: 1.4;  letter-spacing: -0.6px; }
+@media (max-width: 760px) {
+  .wrap {
+    padding-inline: 16px;
+    padding-top: 20px;
+  }
 
-  .label{     font-size: 20px; letter-spacing: -0.8px; }
-  .line{      font-size: 16px; line-height: 1.45; letter-spacing: -0.64px; }
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
 
-  .cardTitle{ font-size: 36px; letter-spacing: -1.44px; }
-  .cardSub{   font-size: 18px; line-height: 1.45; letter-spacing: -0.72px; }
-}
+  .infoCard,
+  .card {
+    border-radius: 10px;
+    padding: 20px 18px;
+  }
 
-@media (max-width: 360px){
-  .h1{ font-size: 28px; }
-  .cardTitle{ font-size: 32px; }
+  .h1 {
+    font-size: 36px;
+  }
+
+  .lead,
+  .text,
+  .cardSub {
+    font-size: 15px;
+  }
+
+  .link,
+  .textStrong {
+    font-size: 22px;
+  }
 }

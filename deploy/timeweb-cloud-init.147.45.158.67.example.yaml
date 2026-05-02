@@ -1,0 +1,134 @@
+#cloud-config
+
+hostname: mkomplekt-prod
+fqdn: mkomplekt-prod.local
+timezone: Asia/Yakutsk
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - gnupg
+  - ufw
+
+users:
+  - default
+  - name: deploy
+    gecos: Deploy User
+    groups: [sudo]
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - "__SSH_PUBLIC_KEY__"
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+
+write_files:
+  - path: /usr/local/bin/install-docker.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.asc
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.gpg
+
+      . /etc/os-release
+      echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" \
+        > /etc/apt/sources.list.d/docker.list
+
+      apt-get update
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      systemctl enable docker
+      systemctl start docker
+      usermod -aG docker deploy
+
+  - path: /usr/local/bin/create-swap.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      if swapon --show | grep -q "/swapfile"; then
+        exit 0
+      fi
+
+      fallocate -l 4G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=4096
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      grep -q "^/swapfile " /etc/fstab || echo "/swapfile none swap sw 0 0" >> /etc/fstab
+
+  - path: /var/tmp/mkomplekt.env.production
+    permissions: "0600"
+    owner: root:root
+    content: |
+      POSTGRES_DB=mkomplekt
+      POSTGRES_USER=mkomplekt
+      POSTGRES_PASSWORD=__POSTGRES_PASSWORD__
+      DATABASE_URL=postgresql://mkomplekt:__POSTGRES_PASSWORD__@db:5432/mkomplekt
+      SECRET_KEY=__DJANGO_SECRET_KEY__
+      APP_ENV=production
+      TIME_ZONE=Asia/Yakutsk
+      ALLOWED_HOSTS=__DOMAIN__,www.__DOMAIN__,147.45.158.67
+      CORS_ORIGINS=https://__DOMAIN__,https://www.__DOMAIN__
+      CSRF_TRUSTED_ORIGINS=https://__DOMAIN__,https://www.__DOMAIN__
+      COOKIE_SECURE=true
+      COOKIE_DOMAIN=.__DOMAIN__
+      USE_X_FORWARDED_HOST=true
+      SECURE_SSL_REDIRECT=false
+      SECURE_HSTS_SECONDS=0
+      SECURE_HSTS_INCLUDE_SUBDOMAINS=false
+      SECURE_HSTS_PRELOAD=false
+      X_FRAME_OPTIONS=DENY
+      MEDIA_ROOT=/app/media
+      MEDIA_URL=/media
+      GUNICORN_WORKERS=3
+      GUNICORN_TIMEOUT=120
+
+  - path: /usr/local/bin/bootstrap-mkomplekt.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      APP_DIR="/opt/mkomplekt"
+      REPO_URL="__REPO_URL__"
+      REPO_BRANCH="__REPO_BRANCH__"
+
+      mkdir -p /opt
+
+      if [ ! -d "${APP_DIR}/.git" ]; then
+        git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${APP_DIR}"
+      else
+        git -C "${APP_DIR}" fetch --all
+        git -C "${APP_DIR}" checkout "${REPO_BRANCH}"
+        git -C "${APP_DIR}" pull --ff-only origin "${REPO_BRANCH}"
+      fi
+
+      install -m 0755 -d "${APP_DIR}/backend"
+      cp /var/tmp/mkomplekt.env.production "${APP_DIR}/backend/.env.production"
+      chown root:root "${APP_DIR}/backend/.env.production"
+      chmod 600 "${APP_DIR}/backend/.env.production"
+
+      cd "${APP_DIR}"
+      docker compose -f docker-compose.prod.yml up -d --build
+
+runcmd:
+  - bash /usr/local/bin/install-docker.sh
+  - bash /usr/local/bin/create-swap.sh
+  - ufw allow OpenSSH
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+  - bash /usr/local/bin/bootstrap-mkomplekt.sh
+
+final_message: "mkomplekt bootstrap completed on 147.45.158.67."

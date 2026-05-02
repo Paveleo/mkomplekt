@@ -1,53 +1,80 @@
-import s from './Footer.module.css';
-import Images from '../../images'; 
+import { Link } from 'react-router-dom'
+import s from './Footer.module.css'
+
+const year = new Date().getFullYear()
 
 export default function Footer() {
   return (
     <footer className={s.footer}>
-      <div className={s.top}>
-        <div className={s.imageWrap}>
-          <img
-            src={Images?.FooterImage}
-            alt="Интерьер"
-          />
-        </div>
+      <div className={s.shell}>
+        <div className={s.top}>
+          <div className={s.brandBlock}>
+            <p className={s.eyebrow}>МебельКомплект</p>
+            <h2 className={s.title}>Материалы, фурнитура и комплектация для мебельных проектов</h2>
+            <p className={s.text}>
+              Помогаем собрать проект без лишнего шума: каталог, консультация, комплектация и
+              понятная связь на каждом этапе.
+            </p>
+          </div>
 
-        <div className={s.info}>
-          <h2 className={s.title}>
-            Мебель Под Вас.<br />Без Компромиссов.
-          </h2>
-          <p className={s.sub}>
-            Обновите свой интерьер стильной и удобной мебелью.
-            Найдите идеальную мебель прямо сейчас.
-          </p>
-
-          <div className={s.hr} />
-
-          <div className={s.links}>
-            <div>
-              <div className={s.head}>Главные</div>
-              <ul className={s.list}>
-                <li><a href="/catalog">Каталог</a></li>
-                <li><a href="/about">О нас</a></li>
-                <li><a href="/reviews">Отзывы</a></li>
-              </ul>
-            </div>
-            <div>
-              <div className={s.head}>Социальные сети</div>
-              <ul className={s.list}>
-                <li><a href="https://t.me/mk14ru" target="_blank" rel="noreferrer">Телеграм</a></li>
-                <li><a href="https://wa.me/89141011645" target="_blank" rel="noreferrer">Ватсапп</a></li>
-                <li><a href="https://instagram.com/MEBEL_KOMPLEKT57" target="_blank" rel="noreferrer">Инстаграм</a></li>
-              </ul>
+          <div className={s.ctaCard}>
+            <span className={s.ctaLabel}>На связи</span>
+            <a className={s.ctaPhone} href="tel:+79141011654">
+              8 (914) 101-16-54
+            </a>
+            <p className={s.ctaText}>Оставьте заявку или свяжитесь напрямую, если нужен быстрый ответ.</p>
+            <div className={s.actions}>
+              <Link className={s.primary} to="/contacts">
+                Оставить заявку
+              </Link>
+              <Link className={s.secondary} to="/catalog">
+                Открыть каталог
+              </Link>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className={s.bottom}>
-        <div className={s.copy}>© 2025 МКомплект. Все права защищены.</div>
-        <a className={s.email} href="mailto:mk14ru@mail.ru">mk14ru@mail.ru</a>
+        <div className={s.linksGrid}>
+          <div className={s.col}>
+            <div className={s.head}>Разделы</div>
+            <div className={s.links}>
+              <Link to="/">Главная</Link>
+              <Link to="/catalog">Каталог</Link>
+              <Link to="/about">О нас</Link>
+              <Link to="/contacts">Контакты</Link>
+            </div>
+          </div>
+
+          <div className={s.col}>
+            <div className={s.head}>Контакты</div>
+            <div className={s.links}>
+              <a href="tel:+79141011654">8 (914) 101-16-54</a>
+              <a href="mailto:mk14ru@mail.ru">mk14ru@mail.ru</a>
+              <span>Якутск, Окружная дорога, 59/1Б</span>
+            </div>
+          </div>
+
+          <div className={s.col}>
+            <div className={s.head}>Соцсети</div>
+            <div className={s.links}>
+              <a href="https://t.me/mk14ru" target="_blank" rel="noreferrer">
+                Telegram
+              </a>
+              <a href="https://wa.me/89141011645" target="_blank" rel="noreferrer">
+                WhatsApp
+              </a>
+              <a href="https://instagram.com/MEBEL_KOMPLEKT57" target="_blank" rel="noreferrer">
+                Instagram
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className={s.bottom}>
+          <div className={s.copy}>© {year} МебельКомплект. Все права защищены.</div>
+          <div className={s.meta}>Сайт каталога, заявок и проектной комплектации</div>
+        </div>
       </div>
     </footer>
-  );
+  )
 }

@@ -1,10 +1,12 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { supabase } from '@/lib/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
+import styles from '../admin.module.css';
 
-const slugify = (s: string) =>
-  s.trim()
+const slugify = (value: string) =>
+  value
+    .trim()
     .toLowerCase()
     .replace(/[^a-z0-9\u0400-\u04FF]+/gi, '-')
     .replace(/^-+|-+$/g, '');
@@ -37,8 +39,7 @@ export default function CategoryForm({
 
   const { data: cats } = useQuery({
     queryKey: ['categories-all'],
-    queryFn: async () =>
-      (await supabase.from('categories').select('id,title').order('title')).data || [],
+    queryFn: async () => apiRequest<{ id: string; title: string }[]>('/api/admin/categories/options'),
   });
 
   useEffect(() => {
@@ -54,39 +55,53 @@ export default function CategoryForm({
     }
   }, [editing, reset]);
 
-  const titleWatch = watch('title') || '';
+  const title = watch('title') || '';
+  const manualSlug = watch('slug') || '';
 
-  const onSubmit = async (v: Form) => {
-    const title = (v.title ?? '').trim();
-    if (!title) return alert('Введите название категории');
-
-    if (editing && v.parent_id === editing.id) {
-      return alert('Категория не может быть своим родителем');
+  const onSubmit = async (values: Form) => {
+    const trimmedTitle = (values.title ?? '').trim();
+    if (!trimmedTitle) {
+      alert('Введите название категории');
+      return;
     }
 
-    const payload: any = {
-      title,
-      parent_id: v.parent_id || null,
-      image_url: v.image_url || null,
-      slug: v.slug && v.slug.trim() ? slugify(v.slug) : slugify(title),
+    if (editing && values.parent_id === editing.id) {
+      alert('Категория не может быть своим родителем');
+      return;
+    }
+
+    const payload = {
+      title: trimmedTitle,
+      parent_id: values.parent_id || null,
+      image_url: values.image_url || null,
+      slug: values.slug && values.slug.trim() ? slugify(values.slug) : slugify(trimmedTitle),
     };
-    if (!editing) payload.sort = 0;
 
-    let error;
-    if (editing) {
-      ({ error } = await supabase.from('categories').update(payload).eq('id', editing.id));
-    } else {
-      ({ error } = await supabase.from('categories').insert([payload]));
+    try {
+      if (editing) {
+        await apiRequest(`/api/admin/categories/${editing.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiRequest('/api/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+    } catch (error: any) {
+      alert(error.message || 'Ошибка сохранения категории');
+      return;
     }
-    if (error) return alert(error.message);
 
     await Promise.all([
-      qc.invalidateQueries({ queryKey: ['categories'] }),             
-      qc.invalidateQueries({ queryKey: ['categories-all'] }),         
-      qc.invalidateQueries({ queryKey: ['categories-for-products'] }), 
-      qc.invalidateQueries({ queryKey: ['root-categories'] }),         
+      qc.invalidateQueries({ queryKey: ['categories'] }),
+      qc.invalidateQueries({ queryKey: ['categories-all'] }),
+      qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
+      qc.invalidateQueries({ queryKey: ['root-categories'] }),
+      qc.invalidateQueries({ queryKey: ['catalog-tree'] }),
       qc.invalidateQueries({
-        predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
+        predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'child-categories',
       }),
     ]);
 
@@ -95,42 +110,58 @@ export default function CategoryForm({
   };
 
   return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr 1fr 120px',
-        gap: 8,
-        margin: '16px 0',
-      }}
-    >
-      <input placeholder="Название" {...register('title', { required: true })} />
+    <div className={styles.card}>
+      <div className={styles.cardHeader}>
+        <div>
+          <h2 className={styles.cardTitle}>{editing ? 'Редактирование категории' : 'Новая категория'}</h2>
+          <p className={styles.cardText}>
+            Создайте корневую категорию или вложите её в уже существующую структуру каталога.
+          </p>
+        </div>
+      </div>
 
-      <select {...register('parent_id')}>
-        <option value="">— Корневая —</option>
-        {cats?.map((c: any) => (
-          <option key={c.id} value={c.id} disabled={editing?.id === c.id}>
-            {c.title}
-          </option>
-        ))}
-      </select>
+      <form onSubmit={handleSubmit(onSubmit)} className={styles.formStack}>
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Название</span>
+            <input className={styles.input} placeholder="Например: Столешницы" {...register('title', { required: true })} />
+          </label>
 
-      <input placeholder="Image URL" {...register('image_url')} />
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Родительская категория</span>
+            <select className={styles.select} {...register('parent_id')}>
+              <option value="">Корневая категория</option>
+              {cats?.map((category) => (
+                <option key={category.id} value={category.id} disabled={editing?.id === category.id}>
+                  {category.title}
+                </option>
+              ))}
+            </select>
+          </label>
 
-      <button>{editing ? 'Сохранить' : 'Добавить'}</button>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Изображение</span>
+            <input className={styles.input} placeholder="Ссылка на изображение" {...register('image_url')} />
+          </label>
 
-      <div style={{ gridColumn: '1 / -1', fontSize: 12, opacity: 0.7 }}>
-        {editing ? (
-          <>
-            Режим: <b>редактирование</b>. Слаг будет: <code>{slugify(titleWatch)}</code>{' '}
-            <button type="button" onClick={onDone} style={{ marginLeft: 8 }}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>Slug</span>
+            <input className={styles.input} placeholder="Можно оставить пустым" {...register('slug')} />
+            <span className={styles.fieldHint}>
+              Итоговый slug: <code>{manualSlug ? slugify(manualSlug) : slugify(title)}</code>
+            </span>
+          </label>
+        </div>
+
+        <div className={styles.actions}>
+          <button className={styles.buttonPrimary}>{editing ? 'Сохранить категорию' : 'Добавить категорию'}</button>
+          {editing ? (
+            <button type="button" className={styles.buttonGhost} onClick={onDone}>
               Отмена
             </button>
-          </>
-        ) : (
-          <>Слаг будет: <code>{slugify(titleWatch)}</code></>
-        )}
-      </div>
-    </form>
+          ) : null}
+        </div>
+      </form>
+    </div>
   );
 }

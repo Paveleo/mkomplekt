@@ -1,25 +1,35 @@
-import s from './AboutSplit.module.css';
-import { Link } from 'react-router-dom';
-import Images from '../../images'
+import { Link } from 'react-router-dom'
+import Images from '@/images'
+import s from './AboutSplit.module.css'
 
 export default function AboutSplit() {
   return (
     <section className={s.wrap}>
-      <div className={s.textCol}>
-        <p className={s.lead}>
-          <span className={s.hl}>Мы верим</span>, что мебель — это больше, чем функциональность.
-          Это атмосфера, в которой просыпаешься, строишь планы,
-          <span className={s.hl}> обнимаешь близких</span> и просто живёшь. Именно поэтому каждое
-          изделие мы создаём с <span className={s.hl}>вниманием, любовью</span> и пониманием, что
-          настоящий дом начинается <span className={s.hl}>с деталей</span>.
-        </p>
+      <div className={s.card}>
+        <div className={s.textCol}>
+          <p className={s.eyebrow}>Подход</p>
+          <h2 className={s.title}>Мы создаём мебель не только по размерам, но и по ощущению дома</h2>
+          <p className={s.lead}>
+            Для нас мебель не сводится к функции. Это среда, в которой живут, работают,
+            собираются с близкими и строят ежедневный ритм. Поэтому каждый проект мы продумываем
+            с вниманием к деталям, материалам и тому, как пространство будет ощущаться в реальной
+            жизни.
+          </p>
 
-        <Link className={s.btn} to="/about">Подробнее</Link>
-      </div>
+          <div className={s.actions}>
+            <Link className={s.primary} to="/about">
+              Подробнее о компании
+            </Link>
+            <Link className={s.secondary} to="/contacts">
+              Обсудить проект
+            </Link>
+          </div>
+        </div>
 
-      <div className={s.mediaCol}>
-        <img src={Images.AboutSplitIMG}/>
+        <div className={s.mediaCol}>
+          <img src={Images.AboutSplitIMG} alt="Современная кухня в тёмных тонах" />
+        </div>
       </div>
     </section>
-  );
+  )
 }

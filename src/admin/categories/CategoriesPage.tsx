@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { apiRequest } from '@/lib/api';
 import CategoryForm from './CategoryForm';
 import { arrayMove } from '../../utils/arrayMove';
+import styles from '../admin.module.css';
 
 type Row = {
   id: string;
@@ -16,29 +17,24 @@ type Row = {
 export default function CategoriesPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Row | null>(null);
+  const [rows, setRows] = useState<Row[]>([]);
 
   const q = useQuery({
     queryKey: ['categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, title, slug, parent_id, sort, image_url') // добавили image_url
-        .order('parent_id', { ascending: true, nullsFirst: true })
-        .order('sort', { ascending: true })
-        .order('title', { ascending: true });
-      if (error) throw error;
-      return (data || []) as Row[];
-    },
+    queryFn: async () => apiRequest<Row[]>('/api/admin/categories'),
   });
 
-  const [rows, setRows] = useState<Row[]>([]);
-  useEffect(() => { if (q.data) setRows(q.data); }, [q.data]);
+  useEffect(() => {
+    if (q.data) setRows(q.data);
+  }, [q.data]);
+
+  const titleMap = new Map(rows.map((row) => [row.id, row.title]));
 
   const move = (index: number, delta: number) => {
-    const cur = rows[index];
+    const current = rows[index];
     const targetIndex = index + delta;
     if (targetIndex < 0 || targetIndex >= rows.length) return;
-    if (rows[targetIndex].parent_id !== cur.parent_id) return;
+    if (rows[targetIndex].parent_id !== current.parent_id) return;
     setRows(arrayMove(rows, index, targetIndex));
   };
 
@@ -46,87 +42,141 @@ export default function CategoriesPage() {
     const payload: { id: string; sort: number }[] = [];
     const counters = new Map<string | null, number>();
 
-    for (const r of rows) {
-      const key = (r.parent_id ?? null) as string | null;
+    for (const row of rows) {
+      const key = row.parent_id ?? null;
       const next = counters.get(key) ?? 0;
-      payload.push({ id: r.id, sort: next });
+      payload.push({ id: row.id, sort: next });
       counters.set(key, next + 1);
     }
 
-    const { error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' });
-    if (error) { alert(error.message); return; }
+    try {
+      await apiRequest('/api/admin/categories/order', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
 
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ['categories'] }),
-      qc.invalidateQueries({ queryKey: ['categories-all'] }),
-      qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
-      qc.invalidateQueries({ queryKey: ['root-categories'] }),
-      qc.invalidateQueries({
-        predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
-      }),
-    ]);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['categories'] }),
+        qc.invalidateQueries({ queryKey: ['categories-all'] }),
+        qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
+        qc.invalidateQueries({ queryKey: ['root-categories'] }),
+        qc.invalidateQueries({ queryKey: ['catalog-tree'] }),
+        qc.invalidateQueries({
+          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'child-categories',
+        }),
+      ]);
 
-    alert('Порядок категорий сохранён');
+      alert('Порядок категорий сохранён');
+    } catch (error: any) {
+      alert(error.message || 'Не удалось сохранить порядок');
+    }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить категорию? Убедитесь, что нет подкатегорий/товаров.')) return;
-    const { error } = await supabase.from('categories').delete().eq('id', id);
-    if (error) return alert(error.message);
+    if (!confirm('Удалить категорию? Убедитесь, что в ней нет товаров и подкатегорий.')) return;
 
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ['categories'] }),
-      qc.invalidateQueries({ queryKey: ['categories-all'] }),
-      qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
-      qc.invalidateQueries({ queryKey: ['root-categories'] }),
-      qc.invalidateQueries({
-        predicate: q => Array.isArray(q.queryKey) && q.queryKey[0] === 'child-categories',
-      }),
-    ]);
+    try {
+      await apiRequest(`/api/admin/categories/${id}`, { method: 'DELETE' });
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['categories'] }),
+        qc.invalidateQueries({ queryKey: ['categories-all'] }),
+        qc.invalidateQueries({ queryKey: ['categories-for-products'] }),
+        qc.invalidateQueries({ queryKey: ['root-categories'] }),
+        qc.invalidateQueries({ queryKey: ['catalog-tree'] }),
+        qc.invalidateQueries({
+          predicate: (query) => Array.isArray(query.queryKey) && query.queryKey[0] === 'child-categories',
+        }),
+      ]);
+    } catch (error: any) {
+      alert(error.message || 'Не удалось удалить категорию');
+    }
   };
 
   return (
-    <div>
-      <h1>Категории</h1>
+    <div className={styles.page}>
+      <div className={styles.pageHeader}>
+        <div>
+          <p className={styles.eyebrow}>Структура каталога</p>
+          <h1 className={styles.title}>Категории</h1>
+          <p className={styles.subtitle}>
+            Настраивайте навигацию каталога и поддерживайте понятную иерархию разделов.
+          </p>
+        </div>
 
-      {/* Форма умеет и добавлять, и редактировать */}
+        <div className={styles.actions}>
+          <button className={styles.buttonSecondary} onClick={saveOrder}>Сохранить порядок</button>
+        </div>
+      </div>
+
       <CategoryForm editing={editing} onDone={() => setEditing(null)} />
 
-      {q.isLoading ? <p>Загрузка…</p> : q.isError ? <p>Ошибка загрузки</p> : (
-        <>
-          <table style={{ width: '100%', marginTop: 12 }}>
+      {q.isLoading ? <div className={styles.inlineNotice}>Загрузка категорий...</div> : null}
+      {q.isError ? <div className={styles.errorNotice}>Не удалось загрузить категории.</div> : null}
+
+      {!q.isLoading && !q.isError && rows.length === 0 ? (
+        <div className={styles.emptyState}>Категории пока не созданы.</div>
+      ) : null}
+
+      {!q.isLoading && !q.isError && rows.length > 0 ? (
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
             <thead>
               <tr>
-                <th style={{ width: 90 }}>Порядок</th>
-                <th>Название</th>
+                <th>Порядок</th>
+                <th>Категория</th>
                 <th>Slug</th>
-                <th>Parent</th>
-                <th style={{ width: 160 }}></th>
+                <th>Родитель</th>
+                <th />
               </tr>
             </thead>
             <tbody>
-              {rows.map((c, i) => (
-                <tr key={c.id}>
+              {rows.map((category, index) => (
+                <tr key={category.id}>
                   <td>
-                    <button onClick={() => move(i, -1)} disabled={i === 0 || (rows[i - 1]?.parent_id !== c.parent_id)}>↑</button>{' '}
-                    <button onClick={() => move(i, +1)} disabled={i === rows.length - 1 || (rows[i + 1]?.parent_id !== c.parent_id)}>↓</button>
+                    <div className={styles.toolbarGroup}>
+                      <button
+                        className={styles.iconButton}
+                        onClick={() => move(index, -1)}
+                        disabled={index === 0 || rows[index - 1]?.parent_id !== category.parent_id}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        className={styles.iconButton}
+                        onClick={() => move(index, +1)}
+                        disabled={index === rows.length - 1 || rows[index + 1]?.parent_id !== category.parent_id}
+                      >
+                        ↓
+                      </button>
+                    </div>
                   </td>
-                  <td>{c.title}</td>
-                  <td>{c.slug}</td>
-                  <td>{c.parent_id ? c.parent_id : '—'}</td>
                   <td>
-                    <button onClick={() => setEditing(c)} style={{ marginRight: 8 }}>Ред.</button>
-                    <button onClick={() => handleDelete(c.id)}>Удалить</button>
+                    <div className={styles.tableTitle}>
+                      <span className={styles.tablePrimary}>{category.title}</span>
+                      <span className={styles.tableSecondary}>
+                        {category.image_url ? 'Есть изображение' : 'Без изображения'}
+                      </span>
+                    </div>
+                  </td>
+                  <td>{category.slug || '—'}</td>
+                  <td>{category.parent_id ? titleMap.get(category.parent_id) || 'Родитель не найден' : 'Корневая'}</td>
+                  <td>
+                    <div className={styles.tableActions}>
+                      <button className={styles.buttonSecondary} onClick={() => setEditing(category)}>
+                        Редактировать
+                      </button>
+                      <button className={styles.buttonDanger} onClick={() => handleDelete(category.id)}>
+                        Удалить
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 12 }}>
-            <button onClick={saveOrder}>Сохранить порядок</button>
-          </div>
-        </>
-      )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,39 +1,44 @@
-
-import s from './USP.module.css';
+import s from './USP.module.css'
 
 const steps = [
   {
-    no: 1,
+    no: '01',
     title: 'От идеи до концепции',
-    text:
-      'Обсудим ваш проект, учтём все детали и предложим функциональный дизайн.',
+    text: 'Обсудим ваш проект, учтём детали пространства и предложим функциональное решение под ваш сценарий жизни.',
   },
   {
-    no: 2,
+    no: '02',
     title: 'Проработка и согласование',
-    text:
-      'Уточним материалы, доработаем макет и утвердим финальный вариант.',
+    text: 'Уточним материалы, доработаем макет, соберём комплектацию и согласуем финальный вариант без лишней спешки.',
   },
   {
-    no: 3,
-    title: 'Производство и сборка под ключ',
-    text:
-      'Изготовим, упакуем, доставим и аккуратно соберём мебель на месте.',
+    no: '03',
+    title: 'Производство и сборка',
+    text: 'Изготовим, упакуем, доставим и аккуратно соберём мебель на месте, чтобы проект дошёл до результата под ключ.',
   },
-];
+]
 
 export default function USP() {
   return (
     <section className={s.wrap}>
+      <div className={s.heading}>
+        <p className={s.eyebrow}>Как работаем</p>
+        <h2 className={s.title}>Понятный путь от запроса до готового интерьера</h2>
+        <p className={s.subtitle}>
+          Ведём проект последовательно: от первой идеи и подбора материалов до производства,
+          доставки и сборки.
+        </p>
+      </div>
+
       <div className={s.grid}>
-        {steps.map((it) => (
-          <article key={it.no} className={s.card}>
-            <div className={s.no}>No. {it.no}</div>
-            <h3 className={s.title}>{it.title}</h3>
-            <p className={s.text}>{it.text}</p>
+        {steps.map((item) => (
+          <article key={item.no} className={s.card}>
+            <div className={s.no}>{item.no}</div>
+            <h3 className={s.cardTitle}>{item.title}</h3>
+            <p className={s.text}>{item.text}</p>
           </article>
         ))}
       </div>
     </section>
-  );
+  )
 }

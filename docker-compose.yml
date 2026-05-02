@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mkomplekt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mkomplekt
+      POSTGRES_USER: mkomplekt
+      POSTGRES_PASSWORD: mkomplekt
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mkomplekt -d mkomplekt"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mkomplekt-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://mkomplekt:mkomplekt@db:5432/mkomplekt
+      SECRET_KEY: change-me-in-production
+      CORS_ORIGINS: http://localhost,http://127.0.0.1,http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      COOKIE_SECURE: "false"
+      COOKIE_DOMAIN: ""
+      APP_ENV: production
+      MEDIA_ROOT: /app/media
+      MEDIA_URL: /media
+    volumes:
+      - media_data:/app/media
+    expose:
+      - "8000"
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mkomplekt-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  media_data:

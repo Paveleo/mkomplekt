@@ -13,6 +13,9 @@ export default function Reviews() {
   }, [items.length])
 
   const current = items[index] || null
+  const displayName = current?.name?.trim() || 'Клиент'
+  const displayInitial = displayName.charAt(0).toUpperCase()
+  const paragraphs = current?.text?.length ? current.text : ['Отзыв скоро появится.']
   const progress = useMemo(
     () => (items.length ? `${((index + 1) / items.length) * 100}%` : '0%'),
     [index, items.length],
@@ -52,15 +55,15 @@ export default function Reviews() {
         <div className={s.mediaCard}>
           <div className={s.author}>
             {current.avatar_url ? (
-              <img className={s.avatar} src={current.avatar_url} alt={current.name} />
+              <img className={s.avatar} src={current.avatar_url} alt={displayName} />
             ) : (
               <div className={s.avatarPlaceholder} aria-hidden="true">
-                {current.name.charAt(0).toUpperCase()}
+                {displayInitial}
               </div>
             )}
 
             <div className={s.authorInfo}>
-              <div className={s.name}>{current.name}</div>
+              <div className={s.name}>{displayName}</div>
               <div className={s.meta}>
                 {[current.role || 'Клиент', current.city].filter(Boolean).join(', ')}
               </div>
@@ -69,7 +72,7 @@ export default function Reviews() {
 
           {current.image_url ? (
             <div className={s.photo}>
-              <img src={current.image_url} alt={current.name} />
+              <img src={current.image_url} alt={displayName} />
             </div>
           ) : (
             <div className={s.photoPlaceholder}>
@@ -84,7 +87,7 @@ export default function Reviews() {
           </div>
 
           <div className={s.text}>
-            {current.text.map((paragraph) => (
+            {paragraphs.map((paragraph) => (
               <p className={s.paragraph} key={paragraph}>
                 {paragraph}
               </p>

@@ -5,6 +5,7 @@ This project is ready for deployment with Docker Compose.
 ## Production files
 
 - [docker-compose.prod.yml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/docker-compose.prod.yml)
+- [docker-compose.backend.yml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/docker-compose.backend.yml)
 - [backend/.env.production.example](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/backend/.env.production.example)
 - [deploy/timeweb-cloud-init.example.yaml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/timeweb-cloud-init.example.yaml)
 
@@ -21,6 +22,37 @@ Create admin:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec api python manage.py createsuperuser
+```
+
+## Backend-only deploy
+
+Use this if the frontend is hosted somewhere else, for example on REG.RU.
+
+Recommended DNS:
+
+- `mebelkomplekt14.ru` -> frontend hosting
+- `www.mebelkomplekt14.ru` -> frontend hosting
+- `api.mebelkomplekt14.ru` -> `147.45.158.67`
+
+Recommended frontend env:
+
+```env
+VITE_API_BASE_URL=https://api.mebelkomplekt14.ru
+```
+
+Recommended backend env:
+
+```env
+ALLOWED_HOSTS=api.mebelkomplekt14.ru,147.45.158.67
+CORS_ORIGINS=https://mebelkomplekt14.ru,https://www.mebelkomplekt14.ru
+CSRF_TRUSTED_ORIGINS=https://api.mebelkomplekt14.ru,https://mebelkomplekt14.ru,https://www.mebelkomplekt14.ru
+COOKIE_DOMAIN=.mebelkomplekt14.ru
+```
+
+Start backend-only stack:
+
+```bash
+docker compose -f docker-compose.backend.yml up -d --build
 ```
 
 ## Option 2. Cloud-init

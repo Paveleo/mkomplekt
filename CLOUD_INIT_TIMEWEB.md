@@ -4,6 +4,7 @@ Use:
 
 - [deploy/timeweb-cloud-init.example.yaml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/timeweb-cloud-init.example.yaml)
 - [deploy/timeweb-cloud-init.147.45.158.67.example.yaml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/timeweb-cloud-init.147.45.158.67.example.yaml)
+- [deploy/timeweb-cloud-init.mebelkomplekt14.ru.yaml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/timeweb-cloud-init.mebelkomplekt14.ru.yaml)
 
 ## Replace before paste
 
@@ -57,6 +58,10 @@ If the VPS already exists, cloud-init will not run automatically anymore.
 For an existing server, use:
 
 - [deploy/bootstrap-existing-vps.sh](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/bootstrap-existing-vps.sh)
+
+If you already made the repository public and want the simplest reinstall flow, use:
+
+- [deploy/timeweb-cloud-init.mebelkomplekt14.ru.yaml](/C:/Users/pavel/OneDrive/Desktop/mkomplekt/deploy/timeweb-cloud-init.mebelkomplekt14.ru.yaml)
 
 After HTTPS is configured, update:
 

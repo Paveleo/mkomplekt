@@ -721,14 +721,26 @@ def get_2gis_review_avatar(review: dict) -> str | None:
 
 def get_2gis_review_image(review: dict) -> str | None:
     for media_item in review.get("media") or []:
-        preview_urls = media_item.get("preview_urls") or media_item.get("photo_preview_urls") or {}
-        if isinstance(preview_urls, dict):
-            for key in ("640x", "320x", "url", "64x64"):
-                value = str(preview_urls.get(key) or "").strip()
-                if value:
-                    return value
+        candidates = [
+            media_item.get("preview_urls"),
+            media_item.get("photo_preview_urls"),
+            (media_item.get("photo") or {}).get("preview_urls"),
+            (media_item.get("photo") or {}).get("photo_preview_urls"),
+            (media_item.get("video") or {}).get("preview_urls"),
+        ]
+        for preview_urls in candidates:
+            if isinstance(preview_urls, dict):
+                for key in ("640x", "320x", "url", "64x64", "1920x"):
+                    value = str(preview_urls.get(key) or "").strip()
+                    if value:
+                        return value
         for key in ("url", "src"):
             value = str(media_item.get(key) or "").strip()
+            if value:
+                return value
+        photo = media_item.get("photo") or {}
+        for key in ("url", "src"):
+            value = str(photo.get(key) or "").strip()
             if value:
                 return value
     return None

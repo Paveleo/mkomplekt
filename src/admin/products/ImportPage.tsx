@@ -8,6 +8,12 @@ type ImportStats = {
   products_created: number
   products_updated: number
   products_skipped: number
+  category_images_from_excel?: number
+  category_images_autoparsed?: number
+  category_images_missing?: number
+  product_images_from_excel?: number
+  product_images_autoparsed?: number
+  product_images_missing?: number
 }
 
 type ImportResponse = {
@@ -20,11 +26,11 @@ function getImportErrorMessage(error: any) {
   const backendError = error?.response?.data?.error
 
   if (detail === 'INVALID_FILE_FORMAT') {
-    return 'Нужен файл Excel в формате .xlsx'
+    return 'Нужен Excel-файл в формате .xlsx'
   }
 
   if (detail === 'INVALID_EXCEL_FILE') {
-    return 'Файл Excel не удалось прочитать. Проверьте, что это корректный .xlsx'
+    return 'Не удалось прочитать Excel-файл. Проверьте, что это корректный .xlsx'
   }
 
   if (detail === 'INVALID_EXCEL_STRUCTURE') {
@@ -38,7 +44,7 @@ function getImportErrorMessage(error: any) {
   if (detail === 'IMPORT_FAILED') {
     return backendError
       ? `Импорт оборвался на сервере: ${backendError}`
-      : 'Импорт оборвался на сервере. Проверьте логи backend.'
+      : 'Импорт оборвался на сервере. Проверьте backend-логи.'
   }
 
   const message = String(error?.message || '')
@@ -52,19 +58,24 @@ function getImportErrorMessage(error: any) {
 
 function formatImportResult(fileName: string, stats?: ImportStats) {
   if (!stats) {
-    return `Импорт завершён: ${fileName}`
+    return `Импорт завершен: ${fileName}`
   }
 
-  const modeLabel =
-    stats.mode === 'catalog' ? 'иерархический каталог' : 'табличный шаблон'
+  const modeLabel = stats.mode === 'catalog' ? 'иерархический каталог' : 'табличный шаблон'
 
   return [
-    `Импорт завершён: ${fileName}`,
+    `Импорт завершен: ${fileName}`,
     `Режим: ${modeLabel}`,
     `Создано категорий: ${stats.categories_created}`,
     `Создано товаров: ${stats.products_created}`,
     `Обновлено товаров: ${stats.products_updated}`,
     `Пропущено строк: ${stats.products_skipped}`,
+    `Категории: картинки из Excel — ${stats.category_images_from_excel ?? 0}`,
+    `Категории: найдено автопарсером — ${stats.category_images_autoparsed ?? 0}`,
+    `Категории: не найдено — ${stats.category_images_missing ?? 0}`,
+    `Товары: картинки из Excel — ${stats.product_images_from_excel ?? 0}`,
+    `Товары: найдено автопарсером — ${stats.product_images_autoparsed ?? 0}`,
+    `Товары: не найдено — ${stats.product_images_missing ?? 0}`,
   ].join('\n')
 }
 
@@ -113,18 +124,19 @@ export default function ImportPage() {
             <h2 className={styles.cardTitle}>Что можно загружать</h2>
             <p className={styles.cardText}>
               1. Табличный Excel с колонками title, sku, category_slug, price, thickness, color, material,
-              description, is_published, image1, image2, image3.
+              description, is_published, category_image, image1, image2, image3 и далее по необходимости.
             </p>
             <p className={styles.cardText}>
               2. Иерархический каталог с листами, подкатегориями и товарами по отступам. Для него категории
-              и товары создаются автоматически.
+              и товары создаются автоматически, а картинки можно либо положить рядом в ячейки, либо дать
+              автопарсеру найти их по названию и SKU.
             </p>
           </div>
         </div>
 
         <div className={styles.dropzone}>
           <label className={styles.fieldWide}>
-            <span className={styles.fieldLabel}>Excel файл</span>
+            <span className={styles.fieldLabel}>Excel-файл</span>
             <input
               className={styles.input}
               type="file"
@@ -133,8 +145,8 @@ export default function ImportPage() {
               disabled={uploading}
             />
             <span className={styles.fieldHint}>
-              Загружайте один `.xlsx` за раз. Если это иерархический файл, backend сам разберёт листы,
-              отступы и создаст дерево каталога.
+              Загружайте один `.xlsx` за раз. Backend сам определит режим импорта и покажет отдельную
+              статистику по картинкам из Excel и по автопарсеру.
             </span>
           </label>
 

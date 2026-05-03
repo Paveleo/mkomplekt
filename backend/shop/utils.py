@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import mimetypes
 import re
 import shutil
+import socket
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -16,6 +18,10 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Model
 from openpyxl import load_workbook
+
+
+logger = logging.getLogger(__name__)
+REMOTE_MEDIA_DOWNLOAD_TIMEOUT = 10
 
 
 FLAT_IMPORT_HEADERS = {
@@ -209,7 +215,7 @@ def download_remote_media(scope: str, entity_id: str, source_url: str, *, prefix
             "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=REMOTE_MEDIA_DOWNLOAD_TIMEOUT) as response:
         extension = guess_media_extension(source_url, response.headers)
         filename = f"{prefix}-{uuid4().hex}{extension}"
         target_path = entity_dir / filename
@@ -223,8 +229,17 @@ def materialize_category_image(category_id: str, image_source: str | None) -> st
     if not normalized:
         return None
     if is_remote_media_url(normalized):
-        remove_category_media(category_id)
-        return download_remote_media("categories", category_id, normalized, prefix="cover")
+        try:
+            remove_category_media(category_id)
+            return download_remote_media("categories", category_id, normalized, prefix="cover")
+        except (TimeoutError, socket.timeout, OSError, ValueError) as exc:
+            logger.warning(
+                "Failed to download category image %s for %s: %s",
+                normalized,
+                category_id,
+                exc,
+            )
+            return None
     return normalized
 
 
@@ -233,17 +248,37 @@ def materialize_product_images(product_id: str, image_sources: list[str]) -> lis
     if not normalized_sources:
         return []
 
-    remove_product_media(product_id)
     stored_paths: list[str] = []
     remote_index = 0
+    remote_failures = 0
     for source in normalized_sources:
         if is_remote_media_url(source):
             remote_index += 1
-            stored_paths.append(
-                download_remote_media("products", product_id, source, prefix=f"image-{remote_index}")
-            )
+            try:
+                stored_paths.append(
+                    download_remote_media("products", product_id, source, prefix=f"image-{remote_index}")
+                )
+            except (TimeoutError, socket.timeout, OSError, ValueError) as exc:
+                remote_failures += 1
+                logger.warning(
+                    "Failed to download product image %s for %s: %s",
+                    source,
+                    product_id,
+                    exc,
+                )
             continue
         stored_paths.append(source)
+
+    if not stored_paths:
+        if remote_failures:
+            logger.warning(
+                "Skipped all remote images for product %s after %s failures",
+                product_id,
+                remote_failures,
+            )
+        return []
+
+    remove_product_media(product_id)
     return stored_paths
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from django.conf import settings
@@ -58,12 +59,89 @@ from .utils import (
     fetch_url_text,
     normalize_2gis_reviews_url,
     remove_category_media,
+    slugify,
     unique_media_references,
 )
 
 
 ORDER_STATUSES = {"new", "processing", "completed", "cancelled"}
 CONTACT_REQUEST_STATUSES = {"new", "in_progress", "done"}
+
+
+@dataclass
+class ImportState:
+    categories_by_slug: dict[str, Category] = field(default_factory=dict)
+    categories_by_parent_title: dict[tuple[str | None, str], Category] = field(default_factory=dict)
+    products_by_category_title: dict[tuple[str, str], Product] = field(default_factory=dict)
+    category_slugs: set[str] = field(default_factory=set)
+    product_slugs: set[str] = field(default_factory=set)
+    category_image_sources: dict[str, str] = field(default_factory=dict)
+
+
+def make_import_key(parent_id, title: str) -> tuple[str | None, str]:
+    return (str(parent_id) if parent_id else None, title)
+
+
+def make_product_import_key(category_id, title: str) -> tuple[str, str]:
+    return (str(category_id), title)
+
+
+def make_unique_import_slug(used_slugs: set[str], base: str) -> str:
+    base_slug = slugify(base)
+    slug = base_slug
+    suffix = 1
+    while slug in used_slugs:
+        suffix += 1
+        slug = f"{base_slug}-{suffix}"
+    used_slugs.add(slug)
+    return slug
+
+
+def build_import_state(*, category_slugs: set[str] | None = None) -> ImportState:
+    categories = list(Category.objects.all().only("id", "slug", "title", "parent_id", "image_url", "sort"))
+
+    categories_by_slug = {category.slug: category for category in categories}
+    categories_by_parent_title = {
+        make_import_key(category.parent_id, category.title): category for category in categories
+    }
+    category_slug_set = {category.slug for category in categories}
+
+    all_product_slugs = set(Product.objects.values_list("slug", flat=True))
+
+    products_queryset = Product.objects.all().only(
+        "id",
+        "slug",
+        "title",
+        "category_id",
+        "sku",
+        "price",
+        "thickness",
+        "color",
+        "material",
+        "description",
+        "is_published",
+        "sort",
+    )
+    if category_slugs:
+        relevant_category_ids = {
+            category.id
+            for slug, category in categories_by_slug.items()
+            if slug in category_slugs
+        }
+        products_queryset = products_queryset.filter(category_id__in=relevant_category_ids)
+
+    products = list(products_queryset)
+    products_by_category_title = {
+        make_product_import_key(product.category_id, product.title): product for product in products
+    }
+
+    return ImportState(
+        categories_by_slug=categories_by_slug,
+        categories_by_parent_title=categories_by_parent_title,
+        products_by_category_title=products_by_category_title,
+        category_slugs=category_slug_set,
+        product_slugs=all_product_slugs,
+    )
 
 
 def message_ok() -> Response:
@@ -1063,15 +1141,30 @@ def upsert_category(
     parent: Category | None,
     sort: int,
     image_url: str | None = None,
+    import_state: ImportState | None = None,
 ) -> tuple[Category, bool]:
-    category = Category.objects.filter(parent=parent, title=title).first()
+    parent_id = parent.id if parent else None
+    cache_key = make_import_key(parent_id, title)
+    category = import_state.categories_by_parent_title.get(cache_key) if import_state else None
+    if category is None:
+        category = Category.objects.filter(parent=parent, title=title).first()
+        if category and import_state:
+            import_state.categories_by_parent_title[cache_key] = category
+            import_state.categories_by_slug[category.slug] = category
+            import_state.category_slugs.add(category.slug)
+
     if category:
         update_fields: list[str] = []
         if category.sort != sort:
             category.sort = sort
             update_fields.append("sort")
         if image_url is not None and image_url:
-            next_image_url = materialize_category_image(str(category.id), image_url)
+            if import_state and import_state.category_image_sources.get(str(category.id)) == image_url:
+                next_image_url = category.image_url
+            else:
+                next_image_url = materialize_category_image(str(category.id), image_url)
+                if import_state and next_image_url:
+                    import_state.category_image_sources[str(category.id)] = image_url
             if category.image_url != next_image_url:
                 category.image_url = next_image_url
                 update_fields.append("image_url")
@@ -1079,21 +1172,27 @@ def upsert_category(
             remove_category_media(str(category.id))
             category.image_url = None
             update_fields.append("image_url")
+            if import_state:
+                import_state.category_image_sources.pop(str(category.id), None)
         if update_fields:
             category.save(update_fields=update_fields)
         return category, False
 
     slug_source = f"{parent.slug}-{title}" if parent else title
-    category = Category.objects.create(
-        title=title,
-        parent=parent,
-        slug=make_unique_slug(Category, slug_source),
-        image_url=None,
-        sort=sort,
+    category_slug = (
+        make_unique_import_slug(import_state.category_slugs, slug_source)
+        if import_state
+        else make_unique_slug(Category, slug_source)
     )
+    category = Category.objects.create(title=title, parent=parent, slug=category_slug, image_url=None, sort=sort)
     if image_url:
         category.image_url = materialize_category_image(str(category.id), image_url)
         category.save(update_fields=["image_url"])
+        if import_state and category.image_url:
+            import_state.category_image_sources[str(category.id)] = image_url
+    if import_state:
+        import_state.categories_by_parent_title[cache_key] = category
+        import_state.categories_by_slug[category.slug] = category
     return category, True
 
 
@@ -1109,25 +1208,45 @@ def upsert_product(
     material: str | None = None,
     description: str | None = None,
     is_published: bool = True,
+    import_state: ImportState | None = None,
 ) -> tuple[str, Product]:
-    product = Product.objects.filter(category=category, title=title).first()
+    cache_key = make_product_import_key(category.id, title)
+    product = import_state.products_by_category_title.get(cache_key) if import_state else None
+    if product is None:
+        product = Product.objects.filter(category=category, title=title).first()
+        if product and import_state:
+            import_state.products_by_category_title[cache_key] = product
+            import_state.product_slugs.add(product.slug)
     if product:
-        product.sku = sku
-        product.price = price
-        product.thickness = thickness
-        product.color = color
-        product.material = material
-        product.description = description
-        product.is_published = is_published
-        product.sort = sort
-        product.save()
+        update_fields: list[str] = []
+        next_values = {
+            "sku": sku,
+            "price": price,
+            "thickness": thickness,
+            "color": color,
+            "material": material,
+            "description": description,
+            "is_published": is_published,
+            "sort": sort,
+        }
+        for field_name, next_value in next_values.items():
+            if getattr(product, field_name) != next_value:
+                setattr(product, field_name, next_value)
+                update_fields.append(field_name)
+        if update_fields:
+            product.save(update_fields=update_fields)
         return "updated", product
 
     slug_source = f"{category.slug}-{title}"
+    product_slug = (
+        make_unique_import_slug(import_state.product_slugs, slug_source)
+        if import_state
+        else make_unique_slug(Product, slug_source)
+    )
     product = Product.objects.create(
         title=title,
         sku=sku,
-        slug=make_unique_slug(Product, slug_source),
+        slug=product_slug,
         category=category,
         price=price,
         thickness=thickness,
@@ -1137,6 +1256,8 @@ def upsert_product(
         is_published=is_published,
         sort=sort,
     )
+    if import_state:
+        import_state.products_by_category_title[cache_key] = product
     return "created", product
 
 
@@ -1224,13 +1345,13 @@ def import_flat_products(rows: list[dict[str, str]]) -> dict[str, int | str]:
         "products_updated": 0,
         "products_skipped": 0,
     }
-    extend_import_stats(stats)
-    category_image_states: dict[str, str] = {}
-    product_image_states: dict[str, str] = {}
+    import_state = build_import_state(
+        category_slugs={str(row.get("category_slug", "")).strip() for row in rows if row.get("category_slug")}
+    )
 
-    for row in rows:
+    for row_index, row in enumerate(rows):
         category_slug = str(row.get("category_slug", "")).strip()
-        category = Category.objects.filter(slug=category_slug).first()
+        category = import_state.categories_by_slug.get(category_slug)
         if not category:
             stats["products_skipped"] += 1
             continue
@@ -1239,37 +1360,13 @@ def import_flat_products(rows: list[dict[str, str]]) -> dict[str, int | str]:
             str(row.get("category_image", "")).strip()
             or str(row.get("category_image_url", "")).strip()
         )
-        category_image_source: str | None = "from_excel" if category_image else None
-        if not category_image and not category.image_url:
-            category_image = autoparse_category_image_source(
-                category.title,
-                parent_title=category.parent.title if category.parent_id else None,
-                slug=category.slug,
-            ) or ""
-            if category_image:
-                category_image_source = "autoparsed"
-        if category_image and category.image_url != category_image:
+        if category_image:
             category, _ = upsert_category(
                 title=category.title,
                 parent=category.parent,
                 sort=category.sort,
                 image_url=category_image,
-            )
-        if category_image_source:
-            register_import_image_source(
-                stats,
-                category_image_states,
-                state_key=str(category.id),
-                prefix="category_images",
-                source=category_image_source,
-            )
-        elif not category.image_url:
-            register_import_image_source(
-                stats,
-                category_image_states,
-                state_key=str(category.id),
-                prefix="category_images",
-                source="missing",
+                import_state=import_state,
             )
 
         title = str(row.get("title", "")).strip()
@@ -1288,41 +1385,16 @@ def import_flat_products(rows: list[dict[str, str]]) -> dict[str, int | str]:
                 material=str(row.get("material", "")).strip() or None,
                 description=str(row.get("description", "")).strip() or None,
                 is_published=bool_from_value(row.get("is_published"), default=True),
-                sort=int(stats["products_created"]) + int(stats["products_updated"]),
+                sort=row_index,
+                import_state=import_state,
             )
         except ValueError:
             stats["products_skipped"] += 1
             continue
 
         image_paths = iter_product_image_headers(row)
-        product_image_source: str | None = "from_excel" if image_paths else None
-        if not image_paths:
-            image_paths = autoparse_product_image_sources(
-                title=title,
-                sku=str(row.get("sku", "")).strip() or None,
-                category_title=category.title,
-                category_slug=category.slug,
-            )
-            if image_paths:
-                product_image_source = "autoparsed"
         if image_paths:
-            stored_count = replace_imported_product_images(product, image_paths)
-            if stored_count > 0 and product_image_source:
-                register_import_image_source(
-                    stats,
-                    product_image_states,
-                    state_key=str(product.id),
-                    prefix="product_images",
-                    source=product_image_source,
-                )
-        elif not product.images.exists():
-            register_import_image_source(
-                stats,
-                product_image_states,
-                state_key=str(product.id),
-                prefix="product_images",
-                source="missing",
-            )
+            replace_imported_product_images(product, image_paths)
 
         key = "products_created" if result == "created" else "products_updated"
         stats[key] += 1
@@ -1336,52 +1408,26 @@ def import_catalog_nodes(
     parent: Category,
     stats: dict[str, int | str],
     lineage: list[str],
-    category_image_states: dict[str, str],
-    product_image_states: dict[str, str],
+    import_state: ImportState,
 ) -> None:
     for node in nodes:
         if node.children:
-            category_state: str | None = "from_excel" if node.media_urls else None
-            image_source = node.media_urls[0] if node.media_urls else (
-                autoparse_category_image_source(
-                    node.title,
-                    parent_title=parent.title,
-                    slug=parent.slug,
-                )
-            )
-            if image_source and not node.media_urls:
-                category_state = "autoparsed"
+            image_source = node.media_urls[0] if node.media_urls else None
             category, created = upsert_category(
                 title=node.title,
                 parent=parent,
                 sort=node.sort,
                 image_url=image_source,
+                import_state=import_state,
             )
             if created:
                 stats["categories_created"] += 1
-            if category_state:
-                register_import_image_source(
-                    stats,
-                    category_image_states,
-                    state_key=str(category.id),
-                    prefix="category_images",
-                    source=category_state,
-                )
-            elif not category.image_url:
-                register_import_image_source(
-                    stats,
-                    category_image_states,
-                    state_key=str(category.id),
-                    prefix="category_images",
-                    source="missing",
-                )
             import_catalog_nodes(
                 node.children,
                 parent=category,
                 stats=stats,
                 lineage=[*lineage, node.title],
-                category_image_states=category_image_states,
-                product_image_states=product_image_states,
+                import_state=import_state,
             )
             continue
 
@@ -1392,33 +1438,10 @@ def import_catalog_nodes(
             sort=node.sort,
             description=description,
             is_published=True,
+            import_state=import_state,
         )
-        product_image_state: str | None = "from_excel" if node.media_urls else None
-        image_sources = node.media_urls or autoparse_product_image_sources(
-            title=node.title,
-            category_title=parent.title,
-            category_slug=parent.slug,
-        )
-        if image_sources and not node.media_urls:
-            product_image_state = "autoparsed"
-        if image_sources:
-            stored_count = replace_imported_product_images(product, image_sources)
-            if stored_count > 0 and product_image_state:
-                register_import_image_source(
-                    stats,
-                    product_image_states,
-                    state_key=str(product.id),
-                    prefix="product_images",
-                    source=product_image_state,
-                )
-        elif not product.images.exists():
-            register_import_image_source(
-                stats,
-                product_image_states,
-                state_key=str(product.id),
-                prefix="product_images",
-                source="missing",
-            )
+        if node.media_urls:
+            replace_imported_product_images(product, node.media_urls)
         key = "products_created" if result == "created" else "products_updated"
         stats[key] += 1
 
@@ -1431,43 +1454,23 @@ def import_catalog_products(sheets: list[CatalogImportSheet]) -> dict[str, int |
         "products_updated": 0,
         "products_skipped": 0,
     }
-    extend_import_stats(stats)
-    category_image_states: dict[str, str] = {}
-    product_image_states: dict[str, str] = {}
+    import_state = build_import_state()
 
     for index, sheet in enumerate(sheets):
-        root_category_image = autoparse_category_image_source(sheet.title)
         root_category, created = upsert_category(
             title=sheet.title,
             parent=None,
             sort=index,
-            image_url=root_category_image,
+            import_state=import_state,
         )
         if created:
             stats["categories_created"] += 1
-        if root_category_image:
-            register_import_image_source(
-                stats,
-                category_image_states,
-                state_key=str(root_category.id),
-                prefix="category_images",
-                source="autoparsed",
-            )
-        elif not root_category.image_url:
-            register_import_image_source(
-                stats,
-                category_image_states,
-                state_key=str(root_category.id),
-                prefix="category_images",
-                source="missing",
-            )
         import_catalog_nodes(
             sheet.nodes,
             parent=root_category,
             stats=stats,
             lineage=[sheet.title],
-            category_image_states=category_image_states,
-            product_image_states=product_image_states,
+            import_state=import_state,
         )
 
     return stats

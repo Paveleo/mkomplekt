@@ -13,6 +13,11 @@ BOYARD_SITEMAP_URL = f"{BOYARD_BASE_URL}/sitemap.xml"
 SLOTEX_BASE_URL = "https://market.slotex.ru"
 SLOTEX_SITEMAP_URL = f"{SLOTEX_BASE_URL}/sitemap.xml"
 KRONOSPAN_BASE_URL = "https://kronospan.com"
+KRONOSPAN_SITEMAP_URL = f"{KRONOSPAN_BASE_URL}/sitemap.xml"
+EGGER_BASE_URL = "https://www.egger.com"
+EGGER_SITEMAP_URL = f"{EGGER_BASE_URL}/sitemap.xml"
+MAKMART_BASE_URL = "https://makmart.ru"
+MAKMART_SITEMAP_URL = f"{MAKMART_BASE_URL}/sitemap.xml"
 
 LOOKUP_TOKEN_RE = re.compile(r"[a-z0-9\u0400-\u04ff]+", re.IGNORECASE)
 CODE_TOKEN_RE = re.compile(r"[a-z]*\d[\da-z_-]*", re.IGNORECASE)
@@ -32,7 +37,7 @@ BOYARD_CATEGORY_RULES = [
     (("крюч", "вешал"), f"{BOYARD_BASE_URL}/catalog/hangers"),
     (("опор", "ножк", "колес"), f"{BOYARD_BASE_URL}/catalog/supports"),
     (("полкодерж",), f"{BOYARD_BASE_URL}/catalog/shelf"),
-    (("направля", "выдвиж", "ящик"), f"{BOYARD_BASE_URL}/catalog/slide_systems"),
+    (("направля", "ящик", "выдвиж"), f"{BOYARD_BASE_URL}/catalog/slide_systems"),
     (("петл",), f"{BOYARD_BASE_URL}/catalog/hinges_systems"),
     (("корзин", "карго"), f"{BOYARD_BASE_URL}/catalog/baskets"),
     (("сушк",), f"{BOYARD_BASE_URL}/catalog/dryers"),
@@ -49,14 +54,29 @@ SLOTEX_CATEGORY_RULES = [
     (("фасад",), f"{SLOTEX_BASE_URL}/catalog/fasadnoe_polotno/"),
     (("панел", "стенов"), f"{SLOTEX_BASE_URL}/catalog/pristennaya_panel/"),
     (("лдсп",), f"{SLOTEX_BASE_URL}/catalog/mebelnye_plity/ldsp/"),
-    (("плит", "дсп", "мебельн"), f"{SLOTEX_BASE_URL}/catalog/mebelnye_plity/"),
+    (("мдф",), f"{SLOTEX_BASE_URL}/catalog/mebelnye_plity/mdf/"),
+    (("плит", "дсп", "декор"), f"{SLOTEX_BASE_URL}/catalog/mebelnye_plity/"),
     (("плинтус",), f"{SLOTEX_BASE_URL}/catalog/aksessuary/plintusy/"),
     (("аксессуар",), f"{SLOTEX_BASE_URL}/catalog/aksessuary/"),
 ]
 
 KRONOSPAN_CATEGORY_RULES = [
-    (("лдсп", "декор", "плит", "дсп"), f"{KRONOSPAN_BASE_URL}/ru_AM/decors/by_collection/kronodesign/"),
-    (("столеш",), f"{KRONOSPAN_BASE_URL}/ru_AM/products/by_category/kronodesign/stoleshnic/"),
+    (("лдсп", "декор", "плит", "дсп"), f"{KRONOSPAN_BASE_URL}/ru_AM/decors/"),
+    (("столеш",), f"{KRONOSPAN_BASE_URL}/ru_AM/products/"),
+]
+
+EGGER_CATEGORY_RULES = [
+    (("лдсп", "декор", "фасад", "кромк", "столеш"), f"{EGGER_BASE_URL}/ru/interior/decorative-collection"),
+]
+
+MAKMART_CATEGORY_RULES = [
+    (("ручк",), f"{MAKMART_BASE_URL}/catalog/litsevaya-furnitura/ruchki/"),
+    (("петл",), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/petli/"),
+    (("направля", "ящик", "выдвиж"), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/napravlyayushchie/"),
+    (("замк",), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/zamki-i-zashchelki/"),
+    (("лифт",), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/podemnye-mekhanizmy/"),
+    (("опор", "ножк"), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/opory-i-nozhki/"),
+    (("крепеж", "метиз", "конфирмат"), f"{MAKMART_BASE_URL}/catalog/mebelnaya-furnitura/krepezh-i-styazhki/"),
 ]
 
 
@@ -131,6 +151,8 @@ def extract_first_content_image(html: str, page_url: str) -> str | None:
             score += 60
         if "resize_cache" in lowered:
             score += 30
+        if "/files/" in lowered or "/images/" in lowered:
+            score += 20
         if lowered.endswith((".jpg", ".jpeg", ".png", ".webp", ".avif")):
             score += 10
         candidates.append((score, absolute_url))
@@ -141,7 +163,7 @@ def extract_first_content_image(html: str, page_url: str) -> str | None:
     return candidates[0][1]
 
 
-@lru_cache(maxsize=2048)
+@lru_cache(maxsize=4096)
 def fetch_page_meta(url: str) -> tuple[str, str | None]:
     html = fetch_url_text(url)
     title_match = TITLE_RE.search(html)
@@ -153,7 +175,7 @@ def fetch_page_meta(url: str) -> tuple[str, str | None]:
     return title, image_url
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=128)
 def fetch_sitemap_urls(sitemap_url: str) -> tuple[str, ...]:
     xml_text = fetch_url_text(sitemap_url)
     root = ET.fromstring(xml_text)
@@ -199,8 +221,18 @@ def slotex_sitemap_urls() -> tuple[str, ...]:
 
 
 @lru_cache(maxsize=1)
-def boyard_sitemap_urls() -> tuple[str, ...]:
-    return fetch_sitemap_urls(BOYARD_SITEMAP_URL)
+def kronospan_sitemap_urls() -> tuple[str, ...]:
+    return fetch_sitemap_urls(KRONOSPAN_SITEMAP_URL)
+
+
+@lru_cache(maxsize=1)
+def egger_sitemap_urls() -> tuple[str, ...]:
+    return fetch_sitemap_urls(EGGER_SITEMAP_URL)
+
+
+@lru_cache(maxsize=1)
+def makmart_sitemap_urls() -> tuple[str, ...]:
+    return fetch_sitemap_urls(MAKMART_SITEMAP_URL)
 
 
 def score_candidate(query: str, url: str, title: str, *, codes: list[str]) -> int:
@@ -227,12 +259,7 @@ def score_candidate(query: str, url: str, title: str, *, codes: list[str]) -> in
     return score
 
 
-def find_best_page(
-    query: str,
-    urls: list[str],
-    *,
-    codes: list[str] | None = None,
-) -> str | None:
+def find_best_page(query: str, urls: list[str], *, codes: list[str] | None = None) -> str | None:
     best_url: str | None = None
     best_score = 0
     code_list = codes or []
@@ -260,10 +287,27 @@ def rule_based_category_url(title: str, rules: list[tuple[tuple[str, ...], str]]
     return None
 
 
+def filter_urls_with_codes(urls: tuple[str, ...], codes: list[str], *, required_fragment: str | None = None) -> list[str]:
+    results: list[str] = []
+    for url in urls:
+        lowered = url.lower()
+        if required_fragment and required_fragment not in lowered:
+            continue
+        if any(code in lowered for code in codes):
+            results.append(url)
+    return results
+
+
 def autoparse_category_image_source(title: str, *, parent_title: str | None = None, slug: str | None = None) -> str | None:
     context = " ".join(filter(None, [title, parent_title, slug]))
 
-    for rules in (BOYARD_CATEGORY_RULES, SLOTEX_CATEGORY_RULES, KRONOSPAN_CATEGORY_RULES):
+    for rules in (
+        BOYARD_CATEGORY_RULES,
+        MAKMART_CATEGORY_RULES,
+        SLOTEX_CATEGORY_RULES,
+        KRONOSPAN_CATEGORY_RULES,
+        EGGER_CATEGORY_RULES,
+    ):
         category_url = rule_based_category_url(context, rules)
         if not category_url:
             continue
@@ -287,9 +331,18 @@ def autoparse_product_image_sources(
     query = " ".join(filter(None, [title, sku]))
     category_context = " ".join(filter(None, [category_title, category_slug]))
     codes = code_tokens(title, sku)
-
     normalized_context = normalize_lookup_text(category_context)
-    if any(keyword in normalized_context for keyword in ("ручк", "петл", "фурнит", "направля", "замк", "крепеж", "лифт")):
+
+    hardware_context = any(
+        keyword in normalized_context
+        for keyword in ("ручк", "петл", "фурнит", "направля", "замк", "крепеж", "лифт", "опор")
+    )
+    board_context = any(
+        keyword in normalized_context
+        for keyword in ("лдсп", "столеш", "фасад", "панел", "плит", "декор", "компакт", "кромк")
+    )
+
+    if hardware_context:
         try:
             candidates = list(boyard_search_links(sku or title))
             best = find_best_page(query, candidates, codes=codes)
@@ -298,14 +351,38 @@ def autoparse_product_image_sources(
         except Exception:
             pass
 
-    if any(keyword in normalized_context for keyword in ("лдсп", "столеш", "фасад", "панел", "плит", "декор", "компакт")) and codes:
         try:
-            slotex_candidates = [
+            makmart_candidates = [
                 url
-                for url in slotex_sitemap_urls()
-                if "/catalog/" in url and any(code in url.lower() for code in codes)
+                for url in makmart_sitemap_urls()
+                if "/catalog/" in url.lower()
             ]
-            best = find_best_page(query, slotex_candidates[:40], codes=codes)
+            best = find_best_page(query, makmart_candidates[:120], codes=codes)
+            if best:
+                return [best]
+        except Exception:
+            pass
+
+    if board_context and codes:
+        try:
+            slotex_candidates = filter_urls_with_codes(slotex_sitemap_urls(), codes, required_fragment="/catalog/")
+            best = find_best_page(query, slotex_candidates[:60], codes=codes)
+            if best:
+                return [best]
+        except Exception:
+            pass
+
+        try:
+            kronospan_candidates = filter_urls_with_codes(kronospan_sitemap_urls(), codes)
+            best = find_best_page(query, kronospan_candidates[:60], codes=codes)
+            if best:
+                return [best]
+        except Exception:
+            pass
+
+        try:
+            egger_candidates = filter_urls_with_codes(egger_sitemap_urls(), codes)
+            best = find_best_page(query, egger_candidates[:60], codes=codes)
             if best:
                 return [best]
         except Exception:

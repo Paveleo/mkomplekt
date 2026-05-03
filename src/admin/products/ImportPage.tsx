@@ -8,12 +8,6 @@ type ImportStats = {
   products_created: number
   products_updated: number
   products_skipped: number
-  category_images_from_excel?: number
-  category_images_autoparsed?: number
-  category_images_missing?: number
-  product_images_from_excel?: number
-  product_images_autoparsed?: number
-  product_images_missing?: number
 }
 
 type ImportResponse = {
@@ -50,7 +44,7 @@ function getImportErrorMessage(error: any) {
   const message = String(error?.message || '')
   const normalized = message.trim().toLowerCase()
   if (normalized.startsWith('<!doctype html') || normalized.startsWith('<html')) {
-    return 'Backend вернул HTML-ошибку вместо JSON. Обычно это значит, что контейнер api не пересобран после изменений.'
+    return 'Backend вернул HTML-ошибку вместо JSON. Обычно это означает, что контейнер api не пересобран после изменений.'
   }
 
   return message || 'Ошибка импорта'
@@ -70,12 +64,6 @@ function formatImportResult(fileName: string, stats?: ImportStats) {
     `Создано товаров: ${stats.products_created}`,
     `Обновлено товаров: ${stats.products_updated}`,
     `Пропущено строк: ${stats.products_skipped}`,
-    `Категории: картинки из Excel — ${stats.category_images_from_excel ?? 0}`,
-    `Категории: найдено автопарсером — ${stats.category_images_autoparsed ?? 0}`,
-    `Категории: не найдено — ${stats.category_images_missing ?? 0}`,
-    `Товары: картинки из Excel — ${stats.product_images_from_excel ?? 0}`,
-    `Товары: найдено автопарсером — ${stats.product_images_autoparsed ?? 0}`,
-    `Товары: не найдено — ${stats.product_images_missing ?? 0}`,
   ].join('\n')
 }
 
@@ -112,8 +100,8 @@ export default function ImportPage() {
           <p className={styles.eyebrow}>Массовая загрузка</p>
           <h1 className={styles.title}>Импорт Excel</h1>
           <p className={styles.subtitle}>
-            Импорт поддерживает два режима: обычную таблицу с колонками и иерархический каталог вроде
-            файла «Номенклатура для сайта.xlsx».
+            Импорт снова поддерживает загрузку категорий, подкатегорий, товаров и картинок из самого Excel-файла.
+            Для недостающих фото можно отдельно использовать раздел автопарсинга.
           </p>
         </div>
       </div>
@@ -123,13 +111,12 @@ export default function ImportPage() {
           <div>
             <h2 className={styles.cardTitle}>Что можно загружать</h2>
             <p className={styles.cardText}>
-              1. Табличный Excel с колонками title, sku, category_slug, price, thickness, color, material,
-              description, is_published, category_image, image1, image2, image3 и далее по необходимости.
+              1. Табличный Excel с колонками `title`, `sku`, `category_slug`, `price`, `thickness`, `color`,
+              `material`, `description`, `is_published`, `category_image`, `image1`, `image2`, `image3` и далее.
             </p>
             <p className={styles.cardText}>
-              2. Иерархический каталог с листами, подкатегориями и товарами по отступам. Для него категории
-              и товары создаются автоматически, а картинки можно либо положить рядом в ячейки, либо дать
-              автопарсеру найти их по названию и SKU.
+              2. Иерархический каталог с листами, категориями, подкатегориями и товарами по отступам, как в файле
+              «Номенклатура для сайта.xlsx». Картинки можно класть рядом в ячейки или через hyperlink.
             </p>
           </div>
         </div>
@@ -145,8 +132,8 @@ export default function ImportPage() {
               disabled={uploading}
             />
             <span className={styles.fieldHint}>
-              Загружайте один `.xlsx` за раз. Backend сам определит режим импорта и покажет отдельную
-              статистику по картинкам из Excel и по автопарсеру.
+              Загружайте один `.xlsx` за раз. Backend сам определит режим импорта и подхватит структуру каталога,
+              товары и картинки из файла.
             </span>
           </label>
 

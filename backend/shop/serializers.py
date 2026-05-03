@@ -55,6 +55,11 @@ class ReviewPayloadSerializer(serializers.Serializer):
     remove_image = serializers.BooleanField(required=False)
 
 
+class TwoGisReviewImportSerializer(serializers.Serializer):
+    source_url = serializers.URLField()
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=500)
+
+
 class SortSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     sort = serializers.IntegerField()

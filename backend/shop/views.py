@@ -29,6 +29,7 @@ from .serializers import (
     RegisterSerializer,
     ReviewPayloadSerializer,
     SortSerializer,
+    TwoGisReviewImportSerializer,
 )
 from .utils import (
     CatalogImportNode,
@@ -46,6 +47,10 @@ from .utils import (
     remove_product_media,
     store_uploaded_file,
     ticket_number,
+    extract_2gis_reviews_api_url,
+    fetch_json,
+    fetch_url_text,
+    normalize_2gis_reviews_url,
 )
 
 
@@ -691,6 +696,175 @@ def review_from_request(request, *, instance: Review | None = None) -> Review:
     return review
 
 
+def normalize_review_signature(*, name: str, body: str) -> str:
+    return " ".join(f"{name}\n{body}".strip().lower().split())
+
+
+def get_2gis_review_name(review: dict) -> str:
+    user = review.get("user") or {}
+    return (
+        str(user.get("name") or "").strip()
+        or str(user.get("first_name") or "").strip()
+        or "Пользователь 2ГИС"
+    )
+
+
+def get_2gis_review_avatar(review: dict) -> str | None:
+    user = review.get("user") or {}
+    preview_urls = user.get("photo_preview_urls") or {}
+    for key in ("320x", "640x", "url", "64x64"):
+        value = str(preview_urls.get(key) or "").strip()
+        if value:
+            return value
+    return None
+
+
+def get_2gis_review_image(review: dict) -> str | None:
+    for media_item in review.get("media") or []:
+        preview_urls = media_item.get("preview_urls") or media_item.get("photo_preview_urls") or {}
+        if isinstance(preview_urls, dict):
+            for key in ("640x", "320x", "url", "64x64"):
+                value = str(preview_urls.get(key) or "").strip()
+                if value:
+                    return value
+        for key in ("url", "src"):
+            value = str(media_item.get(key) or "").strip()
+            if value:
+                return value
+    return None
+
+
+def iter_2gis_reviews(source_url: str, *, limit: int) -> tuple[list[dict], dict]:
+    normalized_source_url = normalize_2gis_reviews_url(source_url)
+    page_html = fetch_url_text(normalized_source_url)
+    api_url = extract_2gis_reviews_api_url(page_html)
+
+    reviews: list[dict] = []
+    total_available: int | None = None
+    next_url: str | None = api_url
+    visited_urls: set[str] = set()
+
+    while next_url and len(reviews) < limit:
+        if next_url in visited_urls:
+            break
+        visited_urls.add(next_url)
+
+        payload = fetch_json(next_url)
+        page_reviews = payload.get("reviews") or []
+        if not isinstance(page_reviews, list):
+            break
+
+        for review in page_reviews:
+            if not isinstance(review, dict):
+                continue
+            reviews.append(review)
+            if len(reviews) >= limit:
+                break
+
+        meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+        if total_available is None and meta:
+            try:
+                total_available = int(meta.get("branch_reviews_count") or meta.get("total_count") or 0)
+            except (TypeError, ValueError):
+                total_available = None
+
+        next_url = None
+        if len(reviews) < limit and meta:
+            candidate = str(meta.get("next_link") or "").strip()
+            next_url = candidate or None
+
+    return reviews[:limit], {
+        "source_url": normalized_source_url,
+        "api_url": api_url,
+        "total_available": total_available,
+    }
+
+
+def import_2gis_reviews(*, source_url: str, limit: int = 250) -> dict[str, object]:
+    remote_reviews, meta = iter_2gis_reviews(source_url, limit=limit)
+    existing_reviews = list(Review.objects.all())
+    by_signature = {
+        normalize_review_signature(name=review.name, body=review.body): review
+        for review in existing_reviews
+    }
+    next_sort = (
+        Review.objects.order_by("-sort").values_list("sort", flat=True).first()
+    )
+    next_sort = (next_sort if isinstance(next_sort, int) else -1) + 1
+
+    created = 0
+    updated = 0
+    skipped = 0
+
+    for remote_review in remote_reviews:
+        body = str(remote_review.get("text") or "").strip()
+        if not body:
+            skipped += 1
+            continue
+        if remote_review.get("is_hidden"):
+            skipped += 1
+            continue
+
+        name = get_2gis_review_name(remote_review)
+        rating = remote_review.get("rating")
+        role = "2ГИС"
+        if rating not in (None, ""):
+            role = f"2ГИС • {rating}★"
+
+        signature = normalize_review_signature(name=name, body=body)
+        review = by_signature.get(signature)
+
+        if review is None:
+            review = Review(
+                name=name,
+                city="Якутск",
+                role=role,
+                body=body,
+                avatar_path=get_2gis_review_avatar(remote_review),
+                image_path=get_2gis_review_image(remote_review),
+                is_published=False,
+                sort=next_sort,
+            )
+            review.save()
+            by_signature[signature] = review
+            next_sort += 1
+            created += 1
+            continue
+
+        changed = False
+        if review.role != role:
+            review.role = role
+            changed = True
+        if not review.city:
+            review.city = "Якутск"
+            changed = True
+        avatar_path = get_2gis_review_avatar(remote_review)
+        image_path = get_2gis_review_image(remote_review)
+        if avatar_path and review.avatar_path != avatar_path:
+            review.avatar_path = avatar_path
+            changed = True
+        if image_path and review.image_path != image_path:
+            review.image_path = image_path
+            changed = True
+        if changed:
+            review.save()
+            updated += 1
+        else:
+            skipped += 1
+
+    return {
+        "source_url": meta["source_url"],
+        "api_url": meta["api_url"],
+        "stats": {
+            "fetched": len(remote_reviews),
+            "created": created,
+            "updated": updated,
+            "skipped": skipped,
+            "total_available": meta.get("total_available"),
+        },
+    }
+
+
 @api_view(["GET", "POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated, IsAdminUserCookie])
@@ -720,6 +894,33 @@ def admin_reviews_view(request):
         review.save(update_fields=update_fields)
 
     return Response(serialize_review(request, review, admin=True), status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_reviews_import_2gis_view(request):
+    serializer = TwoGisReviewImportSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        result = import_2gis_reviews(
+            source_url=serializer.validated_data["source_url"],
+            limit=serializer.validated_data.get("limit") or 250,
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as exc:
+        return Response(
+            {
+                "detail": "TWOGIS_IMPORT_FAILED",
+                "error": str(exc) or exc.__class__.__name__,
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    return Response({"message": "OK", **result})
 
 
 @api_view(["GET", "PUT", "DELETE"])

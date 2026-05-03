@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import io
+import json
 import re
 import shutil
+import urllib.parse
+import urllib.request
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -289,3 +292,62 @@ def bool_from_value(value, *, default: bool = True) -> bool:
 
 def ticket_number() -> str:
     return f"TKT-{uuid4().hex[:8].upper()}"
+
+
+TWOGIS_REVIEW_API_RE = re.compile(
+    r"https://public-api\.reviews\.2gis\.com/3\.0/branches/[^\"\\]+"
+)
+
+
+def normalize_2gis_reviews_url(url: str) -> str:
+    normalized = (url or "").strip()
+    if not normalized:
+        raise ValueError("SOURCE_URL_REQUIRED")
+
+    parsed = urllib.parse.urlparse(normalized)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("INVALID_SOURCE_URL")
+    if "2gis.ru" not in parsed.netloc:
+        raise ValueError("INVALID_SOURCE_HOST")
+
+    path = parsed.path.rstrip("/")
+    if "/firm/" not in path:
+        raise ValueError("INVALID_2GIS_FIRM_URL")
+    if not path.endswith("/tab/reviews"):
+        path = f"{path}/tab/reviews"
+
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))
+
+
+def fetch_url_text(url: str, *, timeout: int = 20) -> str:
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0 Safari/537.36"
+            ),
+            "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.8",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        charset = response.headers.get_content_charset() or "utf-8"
+        return response.read().decode(charset, errors="ignore")
+
+
+def extract_2gis_reviews_api_url(page_html: str) -> str:
+    match = TWOGIS_REVIEW_API_RE.search(page_html)
+    if not match:
+        raise ValueError("TWOGIS_REVIEWS_API_NOT_FOUND")
+    return match.group(0).replace("offset=50", "offset=0")
+
+
+def fetch_json(url: str, *, timeout: int = 20) -> dict:
+    raw = fetch_url_text(url, timeout=timeout)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("INVALID_REMOTE_JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("INVALID_REMOTE_JSON")
+    return payload

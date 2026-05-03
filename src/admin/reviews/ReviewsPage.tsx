@@ -17,10 +17,27 @@ type AdminReview = {
   sort: number
 }
 
+type TwoGisImportResponse = {
+  message: string
+  source_url: string
+  api_url: string
+  stats: {
+    fetched: number
+    created: number
+    updated: number
+    skipped: number
+    total_available?: number | null
+  }
+}
+
 export default function ReviewsPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<AdminReview[]>([])
+  const [twoGisUrl, setTwoGisUrl] = useState((import.meta.env.VITE_2GIS_REVIEWS_URL || '').trim())
+  const [isImporting, setIsImporting] = useState(false)
+  const [importError, setImportError] = useState('')
+  const [importNotice, setImportNotice] = useState('')
 
   const query = useQuery({
     queryKey: ['reviews-admin'],
@@ -79,6 +96,50 @@ export default function ReviewsPage() {
     }
   }
 
+  const handleTwoGisImport = async () => {
+    const sourceUrl = twoGisUrl.trim()
+    if (!sourceUrl) {
+      setImportError('Укажите ссылку на страницу отзывов 2ГИС.')
+      setImportNotice('')
+      return
+    }
+
+    setImportError('')
+    setImportNotice('')
+    setIsImporting(true)
+
+    try {
+      const result = await apiRequest<TwoGisImportResponse>('/api/admin/reviews/import-2gis', {
+        method: 'POST',
+        body: JSON.stringify({
+          source_url: sourceUrl,
+          limit: 250,
+        }),
+      })
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['reviews-admin'] }),
+        qc.invalidateQueries({ queryKey: ['reviews'] }),
+      ])
+
+      setImportNotice(
+        [
+          `Импорт завершён: получено ${result.stats.fetched}`,
+          `добавлено ${result.stats.created}`,
+          `обновлено ${result.stats.updated}`,
+          `без изменений ${result.stats.skipped}`,
+          result.stats.total_available ? `всего у источника ${result.stats.total_available}` : '',
+        ]
+          .filter(Boolean)
+          .join(', '),
+      )
+    } catch (error: any) {
+      setImportError(error.message || 'Не удалось импортировать отзывы из 2ГИС.')
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
@@ -86,8 +147,8 @@ export default function ReviewsPage() {
           <p className={styles.eyebrow}>Отзывы</p>
           <h1 className={styles.title}>Управление отзывами</h1>
           <p className={styles.subtitle}>
-            Здесь можно добавлять новые отзывы, редактировать тексты, фотографии и
-            порядок показа на главной странице.
+            Здесь можно добавлять новые отзывы, редактировать тексты, фотографии, порядок показа и подтягивать свежие
+            отзывы из 2ГИС прямо в админку.
           </p>
         </div>
 
@@ -131,6 +192,30 @@ export default function ReviewsPage() {
           </div>
         </div>
       </div>
+
+      <div className={styles.card}>
+        <div className={styles.toolbar}>
+          <div className={styles.toolbarGroup} style={{ flex: 1 }}>
+            <input
+              className={styles.input}
+              placeholder="https://2gis.ru/.../tab/reviews"
+              value={twoGisUrl}
+              onChange={(event) => setTwoGisUrl(event.target.value)}
+            />
+          </div>
+          <div className={styles.toolbarGroup}>
+            <button className={styles.buttonPrimary} onClick={handleTwoGisImport} disabled={isImporting}>
+              {isImporting ? 'Импортирую…' : 'Импорт из 2ГИС'}
+            </button>
+          </div>
+        </div>
+        <div className={styles.fieldHint}>
+          Новые отзывы создаются скрытыми, чтобы вы сначала проверили текст и порядок в админке.
+        </div>
+      </div>
+
+      {importError ? <div className={styles.errorNotice}>{importError}</div> : null}
+      {importNotice ? <div className={styles.successNotice}>{importNotice}</div> : null}
 
       {query.isLoading ? <div className={styles.inlineNotice}>Загрузка отзывов...</div> : null}
       {query.isError ? <div className={styles.errorNotice}>Не удалось загрузить отзывы.</div> : null}
@@ -209,8 +294,7 @@ export default function ReviewsPage() {
 
       {isReorderLocked ? (
         <div className={styles.inlineNotice}>
-          Пока включён поиск, перестановка отзывов отключена. Очистите строку поиска,
-          чтобы менять порядок.
+          Пока включён поиск, перестановка отзывов отключена. Очистите строку поиска, чтобы менять порядок.
         </div>
       ) : null}
     </div>

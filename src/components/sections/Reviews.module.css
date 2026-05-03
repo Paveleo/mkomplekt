@@ -50,6 +50,7 @@
 .mediaCard {
   padding: clamp(18px, 2.2vw, 24px);
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 18px;
 }
 
@@ -99,8 +100,9 @@
 .photo {
   overflow: hidden;
   border-radius: 10px;
-  aspect-ratio: 4 / 3;
   background: #ececec;
+  min-height: clamp(320px, 34vw, 640px);
+  height: 100%;
 }
 
 .photo img {
@@ -114,7 +116,6 @@
   display: grid;
   place-items: center;
   border-radius: 10px;
-  aspect-ratio: 4 / 3;
   background:
     radial-gradient(circle at top left, rgba(139, 115, 85, 0.15), transparent 26%),
     linear-gradient(135deg, #efede8 0%, #f9f8f5 100%);
@@ -122,6 +123,8 @@
   font: 500 16px/1 Helvetica, Arial, sans-serif;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  min-height: clamp(320px, 34vw, 640px);
+  height: 100%;
 }
 
 .quoteCard {
@@ -227,6 +230,12 @@
 
   .quoteCard {
     gap: 24px;
+  }
+
+  .photo,
+  .photoPlaceholder {
+    aspect-ratio: 4 / 3;
+    min-height: 0;
   }
 }
 

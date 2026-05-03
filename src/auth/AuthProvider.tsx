@@ -31,6 +31,37 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const AUTH_LOCATION_EVENT = 'auth-locationchange';
+
+function getAuthScopePath() {
+  return window.location.pathname.startsWith('/admin') ? '/api/admin/me' : '/api/auth/me';
+}
+
+function installLocationChangeEvents() {
+  const historyState = window.history as History & { __authPatched?: boolean };
+  if (historyState.__authPatched) {
+    return () => undefined;
+  }
+
+  const wrapHistoryMethod = (method: 'pushState' | 'replaceState') => {
+    const original = window.history[method];
+    window.history[method] = function patchedHistoryState(...args) {
+      const result = original.apply(this, args);
+      window.dispatchEvent(new Event(AUTH_LOCATION_EVENT));
+      return result;
+    } as History['pushState'];
+  };
+
+  wrapHistoryMethod('pushState');
+  wrapHistoryMethod('replaceState');
+
+  const onPopState = () => window.dispatchEvent(new Event(AUTH_LOCATION_EVENT));
+  window.addEventListener('popstate', onPopState);
+  historyState.__authPatched = true;
+
+  return () => window.removeEventListener('popstate', onPopState);
+}
+
 async function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
     const timer = window.setTimeout(() => {
@@ -56,7 +87,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const refresh = async () => {
     setLoading(true);
     try {
-      const currentUser = await withTimeout(apiRequest<AuthUser>('/api/auth/me'));
+      const currentUser = await withTimeout(apiRequest<AuthUser>(getAuthScopePath()));
       setUser(currentUser);
     } catch {
       setUser(null);
@@ -66,7 +97,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   useEffect(() => {
+    const removeLocationListener = installLocationChangeEvents();
     void refresh();
+
+    const onLocationChange = () => {
+      void refresh();
+    };
+
+    window.addEventListener(AUTH_LOCATION_EVENT, onLocationChange);
+    return () => {
+      removeLocationListener();
+      window.removeEventListener(AUTH_LOCATION_EVENT, onLocationChange);
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(

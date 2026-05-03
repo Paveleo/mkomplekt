@@ -283,6 +283,8 @@ def logout_view(request):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated])
 def me_view(request):
+    if request.user.is_admin:
+        return Response({"detail": "ADMIN_SESSION"}, status=status.HTTP_401_UNAUTHORIZED)
     return Response(serialize_user(request.user))
 
 

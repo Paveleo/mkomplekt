@@ -1,4 +1,5 @@
-.shell {
+.shell,
+.loginPage {
   --admin-bg: linear-gradient(180deg, #f7f4ef 0%, #f3efe8 100%);
   --admin-panel: rgba(255, 255, 255, 0.86);
   --admin-panel-strong: #ffffff;
@@ -11,6 +12,9 @@
   --admin-accent-soft: rgba(139, 94, 60, 0.12);
   --admin-danger: #9e3d36;
   --admin-success: #2f6b4f;
+}
+
+.shell {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 280px 1fr;

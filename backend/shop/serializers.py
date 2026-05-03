@@ -60,6 +60,12 @@ class TwoGisReviewImportSerializer(serializers.Serializer):
     limit = serializers.IntegerField(required=False, min_value=1, max_value=500)
 
 
+class MediaAutoparseSerializer(serializers.Serializer):
+    mode = serializers.ChoiceField(choices=["missing", "all"], required=False, default="missing")
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=200, default=25)
+    published_only = serializers.BooleanField(required=False, default=False)
+
+
 class SortSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     sort = serializers.IntegerField()

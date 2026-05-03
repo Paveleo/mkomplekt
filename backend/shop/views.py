@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
-from django.db.models import Case, IntegerField, Prefetch, When
+from django.db.models import Case, IntegerField, Prefetch, Q, When
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, parser_classes, permission_classes
@@ -25,6 +25,7 @@ from .serializers import (
     ContactRequestStatusSerializer,
     CreateOrderSerializer,
     LoginSerializer,
+    MediaAutoparseSerializer,
     OrderStatusSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
@@ -1513,6 +1514,111 @@ def sync_product_gallery(
     )
 
 
+def build_media_import_payload(
+    *,
+    scope: str,
+    mode: str,
+    limit: int,
+    published_only: bool = False,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "scope": scope,
+        "mode": mode,
+        "limit": limit,
+    }
+    if scope == "products":
+        payload["published_only"] = published_only
+    return payload
+
+
+def empty_media_import_stats(*, scope: str, mode: str, limit: int, published_only: bool = False) -> dict[str, object]:
+    stats = build_media_import_payload(scope=scope, mode=mode, limit=limit, published_only=published_only)
+    stats.update(
+        {
+            "processed": 0,
+            "updated": 0,
+            "not_found": 0,
+            "download_failures": 0,
+            "unchanged": 0,
+            "updated_titles": [],
+        }
+    )
+    return stats
+
+
+def autoparse_category_media_batch(*, mode: str, limit: int) -> dict[str, object]:
+    queryset = Category.objects.select_related("parent").order_by("parent_id", "sort", "title")
+    if mode == "missing":
+        queryset = queryset.filter(Q(image_url__isnull=True) | Q(image_url=""))
+
+    rows = list(queryset[:limit])
+    stats = empty_media_import_stats(scope="categories", mode=mode, limit=limit)
+
+    for category in rows:
+        stats["processed"] = int(stats["processed"]) + 1
+        image_source = autoparse_category_image_source(
+            category.title,
+            parent_title=category.parent.title if category.parent_id else None,
+            slug=category.slug,
+        )
+        if not image_source:
+            stats["not_found"] = int(stats["not_found"]) + 1
+            continue
+
+        stored_path = materialize_category_image(str(category.id), image_source)
+        if not stored_path:
+            stats["download_failures"] = int(stats["download_failures"]) + 1
+            continue
+
+        if category.image_url == stored_path:
+            stats["unchanged"] = int(stats["unchanged"]) + 1
+            continue
+
+        category.image_url = stored_path
+        category.save(update_fields=["image_url"])
+        stats["updated"] = int(stats["updated"]) + 1
+        cast_titles = stats["updated_titles"]
+        if isinstance(cast_titles, list):
+            cast_titles.append(category.title)
+
+    return stats
+
+
+def autoparse_product_media_batch(*, mode: str, limit: int, published_only: bool = False) -> dict[str, object]:
+    queryset = Product.objects.select_related("category").prefetch_related("images").order_by("category_id", "sort", "-created_at")
+    if published_only:
+        queryset = queryset.filter(is_published=True)
+    if mode == "missing":
+        queryset = queryset.exclude(id__in=ProductImage.objects.values("product_id"))
+
+    rows = list(queryset[:limit])
+    stats = empty_media_import_stats(scope="products", mode=mode, limit=limit, published_only=published_only)
+
+    for product in rows:
+        stats["processed"] = int(stats["processed"]) + 1
+        image_sources = autoparse_product_image_sources(
+            title=product.title,
+            sku=product.sku,
+            category_title=product.category.title,
+            category_slug=product.category.slug,
+        )
+        if not image_sources:
+            stats["not_found"] = int(stats["not_found"]) + 1
+            continue
+
+        stored_count = replace_imported_product_images(product, image_sources)
+        if stored_count <= 0:
+            stats["download_failures"] = int(stats["download_failures"]) + 1
+            continue
+
+        stats["updated"] = int(stats["updated"]) + 1
+        cast_titles = stats["updated_titles"]
+        if isinstance(cast_titles, list):
+            cast_titles.append(product.title)
+
+    return stats
+
+
 @api_view(["GET", "POST"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated, IsAdminUserCookie])
@@ -1743,4 +1849,37 @@ def admin_import_products_view(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
+    return Response({"message": "OK", "stats": stats})
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_import_categories_view(request):
+    serializer = MediaAutoparseSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    mode = serializer.validated_data["mode"]
+    limit = serializer.validated_data["limit"]
+    stats = autoparse_category_media_batch(mode=mode, limit=limit)
+    return Response({"message": "OK", "stats": stats})
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_import_products_view(request):
+    serializer = MediaAutoparseSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    mode = serializer.validated_data["mode"]
+    limit = serializer.validated_data["limit"]
+    published_only = serializer.validated_data["published_only"]
+    stats = autoparse_product_media_batch(
+        mode=mode,
+        limit=limit,
+        published_only=published_only,
+    )
     return Response({"message": "OK", "stats": stats})

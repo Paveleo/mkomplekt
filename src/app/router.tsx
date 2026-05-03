@@ -18,6 +18,7 @@ import CategoriesPage from '@/admin/categories/CategoriesPage'
 import ProductsPage from '@/admin/products/ProductsPage'
 import ProductForm from '@/admin/products/ProductForm'
 import ImportPage from '@/admin/products/ImportPage'
+import MediaImportPage from '@/admin/products/MediaImportPage'
 import OrdersPage from '@/admin/orders/OrdersPage'
 import ContactRequestsPage from '@/admin/contact-requests/ContactRequestsPage'
 import ReviewsPage from '@/admin/reviews/ReviewsPage'
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'reviews/new', element: <ReviewForm /> },
       { path: 'reviews/:id', element: <ReviewForm /> },
       { path: 'import', element: <ImportPage /> },
+      { path: 'media-import', element: <MediaImportPage /> },
     ],
   },
 ])

@@ -38,6 +38,7 @@ export default function ReviewsPage() {
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState('')
   const [importNotice, setImportNotice] = useState('')
+  const [togglingIds, setTogglingIds] = useState<string[]>([])
 
   const query = useQuery({
     queryKey: ['reviews-admin'],
@@ -96,6 +97,34 @@ export default function ReviewsPage() {
     }
   }
 
+  const handleTogglePublished = async (review: AdminReview) => {
+    setTogglingIds((current) => [...current, review.id])
+
+    try {
+      const updated = await apiRequest<AdminReview>(`/api/admin/reviews/${review.id}/publish`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_published: !review.is_published,
+        }),
+      })
+
+      setRows((current) =>
+        current.map((row) =>
+          row.id === review.id ? { ...row, is_published: updated.is_published } : row,
+        ),
+      )
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['reviews-admin'] }),
+        qc.invalidateQueries({ queryKey: ['reviews'] }),
+      ])
+    } catch (error: any) {
+      alert(error.message || 'Не удалось изменить статус публикации.')
+    } finally {
+      setTogglingIds((current) => current.filter((id) => id !== review.id))
+    }
+  }
+
   const handleTwoGisImport = async () => {
     const sourceUrl = twoGisUrl.trim()
     if (!sourceUrl) {
@@ -147,8 +176,8 @@ export default function ReviewsPage() {
           <p className={styles.eyebrow}>Отзывы</p>
           <h1 className={styles.title}>Управление отзывами</h1>
           <p className={styles.subtitle}>
-            Здесь можно добавлять новые отзывы, редактировать тексты, фотографии, порядок показа и подтягивать свежие
-            отзывы из 2ГИС прямо в админку.
+            Здесь можно редактировать тексты, порядок показа, быстро включать публикацию и подтягивать свежие отзывы из
+            2ГИС.
           </p>
         </div>
 
@@ -239,6 +268,7 @@ export default function ReviewsPage() {
             <tbody>
               {filteredRows.map((review, index) => {
                 const rowIndex = rows.findIndex((row) => row.id === review.id)
+                const isToggling = togglingIds.includes(review.id)
 
                 return (
                   <tr key={review.id}>
@@ -252,9 +282,19 @@ export default function ReviewsPage() {
                       </div>
                     </td>
                     <td>
-                      <span className={review.is_published ? styles.statusCompleted : styles.statusCancelled}>
-                        {review.is_published ? 'Опубликован' : 'Скрыт'}
-                      </span>
+                      <button
+                        type="button"
+                        className={`${review.is_published ? styles.statusCompleted : styles.statusCancelled} ${styles.statusButton}`}
+                        onClick={() => handleTogglePublished(review)}
+                        disabled={isToggling}
+                        title={review.is_published ? 'Снять с публикации' : 'Опубликовать'}
+                      >
+                        {isToggling
+                          ? 'Сохраняю...'
+                          : review.is_published
+                            ? 'Опубликован'
+                            : 'Скрыт'}
+                      </button>
                     </td>
                     <td>
                       <div className={styles.toolbarGroup}>

@@ -33,6 +33,7 @@ urlpatterns = [
     path("admin/reviews", views.admin_reviews_view),
     path("admin/reviews/import-2gis", views.admin_reviews_import_2gis_view),
     path("admin/reviews/order", views.admin_reviews_order_view),
+    path("admin/reviews/<uuid:review_id>/publish", views.admin_review_publish_view),
     path("admin/reviews/<uuid:review_id>", views.admin_review_detail_view),
     path("admin/contact-requests", views.admin_contact_requests_view),
     path("admin/contact-requests/<uuid:contact_request_id>", views.admin_contact_request_detail_view),

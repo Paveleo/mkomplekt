@@ -502,6 +502,27 @@
   color: var(--admin-danger);
 }
 
+.statusButton {
+  border: 0;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease,
+    opacity 140ms ease;
+}
+
+.statusButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(67, 49, 34, 0.08);
+}
+
+.statusButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 .previewGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));

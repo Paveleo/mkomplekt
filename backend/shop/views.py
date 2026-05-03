@@ -979,6 +979,20 @@ def admin_reviews_order_view(request):
     return message_ok()
 
 
+@api_view(["PATCH"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+def admin_review_publish_view(request, review_id):
+    review = Review.objects.filter(pk=review_id).first()
+    if not review:
+        return Response({"detail": "REVIEW_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+
+    next_value = request.data.get("is_published")
+    review.is_published = bool_from_value(next_value, default=not review.is_published)
+    review.save(update_fields=["is_published", "updated_at"])
+    return Response(serialize_review(request, review, admin=True))
+
+
 def product_from_request(request, *, instance: Product | None = None) -> Product:
     data = request.data
     title = str(data.get("title", "")).strip()

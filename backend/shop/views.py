@@ -148,6 +148,17 @@ def message_ok() -> Response:
     return Response({"message": "OK"})
 
 
+def build_text_match_query(search: str, fields: tuple[str, ...]) -> Q:
+    terms = [term.strip() for term in search.split() if term.strip()]
+    combined = Q()
+    for term in terms:
+        term_query = Q()
+        for field in fields:
+            term_query |= Q(**{f"{field}__icontains": term})
+        combined &= term_query
+    return combined
+
+
 def serialize_user(user: User) -> dict:
     return {
         "id": str(user.id),
@@ -200,6 +211,7 @@ def serialize_product(request, product: Product) -> dict:
         "slug": product.slug,
         "sku": product.sku,
         "category_id": str(product.category_id),
+        "category_title": product.category.title,
         "price": to_float(product.price),
         "thickness": to_float(product.thickness),
         "color": product.color,
@@ -678,7 +690,18 @@ def create_order_view(request):
 @permission_classes([IsAuthenticated, IsAdminUserCookie])
 def admin_categories_view(request):
     if request.method == "GET":
-        rows = Category.objects.all().order_by("parent_id", "sort", "title")
+        parent_id = str(request.query_params.get("parent_id") or "").strip()
+        search = str(request.query_params.get("search") or "").strip()
+
+        rows = Category.objects.all()
+        if parent_id == "__root__":
+            rows = rows.filter(parent__isnull=True)
+        elif parent_id:
+            rows = rows.filter(parent_id=parent_id)
+        if search:
+            rows = rows.filter(build_text_match_query(search, ("title", "slug")))
+
+        rows = rows.order_by("parent_id", "sort", "title")
         return Response([serialize_category(request, category, admin=True) for category in rows])
 
     serializer = CategoryPayloadSerializer(data=request.data)
@@ -1628,10 +1651,24 @@ def autoparse_product_media_batch(*, mode: str, limit: int, published_only: bool
 @parser_classes([MultiPartParser, FormParser])
 def admin_products_view(request):
     if request.method == "GET":
-        category_id = request.query_params.get("category_id")
-        queryset = Product.objects.all().prefetch_related("images").order_by("category_id", "sort", "-created_at")
+        category_id = str(request.query_params.get("category_id") or "").strip()
+        search = str(request.query_params.get("search") or "").strip()
+        is_published = str(request.query_params.get("is_published") or "").strip().lower()
+
+        queryset = (
+            Product.objects.all()
+            .select_related("category")
+            .prefetch_related("images")
+            .order_by("category_id", "sort", "-created_at")
+        )
         if category_id:
             queryset = queryset.filter(category_id=category_id)
+        if is_published in {"true", "false"}:
+            queryset = queryset.filter(is_published=is_published == "true")
+        if search:
+            queryset = queryset.filter(
+                build_text_match_query(search, ("title", "slug", "sku", "category__title"))
+            )
         return Response([serialize_product(request, product) for product in queryset])
 
     try:

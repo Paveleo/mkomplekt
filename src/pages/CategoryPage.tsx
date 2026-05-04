@@ -23,17 +23,18 @@ export default function CategoryPage() {
 
   const categoryQuery = useCategoryBySlug(slug)
   const childrenQuery = useChildrenCategories(slug)
-  const hasChildren = (childrenQuery.data?.length ?? 0) > 0
+  const productsQuery = useProductsByCategorySlug(slug)
 
-  const productsQuery = useProductsByCategorySlug(
-    !childrenQuery.isLoading && !hasChildren ? slug : '',
-  )
+  const hasChildren = (childrenQuery.data?.length ?? 0) > 0
+  const hasProducts = (productsQuery.data?.length ?? 0) > 0
+  const isLoading =
+    categoryQuery.isLoading || childrenQuery.isLoading || productsQuery.isLoading
 
   return (
     <div className={s.wrap}>
       <Link to={parentPath} className={s.back}>← Назад</Link>
 
-      {categoryQuery.isLoading || childrenQuery.isLoading ? (
+      {isLoading ? (
         <div className={s.empty}>Загружаем категорию...</div>
       ) : null}
 
@@ -46,38 +47,40 @@ export default function CategoryPage() {
           <h1 className={s.title}>{categoryQuery.data?.title || 'Категория'}</h1>
 
           {hasChildren ? (
-            <div className={s.grid}>
-              {childrenQuery.data?.map((child) => (
-                <CategoryCard
-                  key={child.id}
-                  item={child}
-                  to={`${currentPath}/${child.slug}`}
-                />
-              ))}
-            </div>
-          ) : (
             <>
-              {productsQuery.isLoading ? (
-                <div className={s.empty}>Загружаем товары...</div>
-              ) : null}
-
-              {productsQuery.isError ? (
-                <div className={s.empty}>Не удалось загрузить товары.</div>
-              ) : null}
-
-              {!productsQuery.isLoading && !productsQuery.isError && !productsQuery.data?.length ? (
-                <div className={s.empty}>В этой категории пока нет товаров.</div>
-              ) : null}
-
-              {productsQuery.data?.length ? (
-                <div className={s.grid}>
-                  {productsQuery.data.map((product) => (
-                    <ProductCard key={product.id} item={product} />
-                  ))}
-                </div>
-              ) : null}
+              <div className={s.sectionHeader}>Подкатегории</div>
+              <div className={s.grid}>
+                {childrenQuery.data?.map((child) => (
+                  <CategoryCard
+                    key={child.id}
+                    item={child}
+                    to={`${currentPath}/${child.slug}`}
+                  />
+                ))}
+              </div>
             </>
-          )}
+          ) : null}
+
+          {productsQuery.isError ? (
+            <div className={s.empty}>Не удалось загрузить товары.</div>
+          ) : null}
+
+          {!productsQuery.isLoading && !productsQuery.isError && !hasProducts && !hasChildren ? (
+            <div className={s.empty}>В этой категории пока нет товаров.</div>
+          ) : null}
+
+          {hasProducts ? (
+            <>
+              <div className={s.sectionHeader}>
+                {hasChildren ? 'Товары в этом разделе' : 'Товары'}
+              </div>
+              <div className={s.grid}>
+                {productsQuery.data?.map((product) => (
+                  <ProductCard key={product.id} item={product} />
+                ))}
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

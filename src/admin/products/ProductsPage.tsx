@@ -25,6 +25,7 @@ export default function ProductsPage() {
   const qc = useQueryClient()
   const [catFilter, setCatFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [imageFilter, setImageFilter] = useState('')
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<AdminProduct[]>([])
 
@@ -34,7 +35,7 @@ export default function ProductsPage() {
   })
 
   const q = useQuery({
-    queryKey: ['products-admin', catFilter, statusFilter, search],
+    queryKey: ['products-admin', catFilter, statusFilter, imageFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams()
       if (catFilter) {
@@ -42,6 +43,9 @@ export default function ProductsPage() {
       }
       if (statusFilter) {
         params.set('is_published', statusFilter)
+      }
+      if (imageFilter) {
+        params.set('has_image', imageFilter)
       }
       if (search.trim()) {
         params.set('search', search.trim())
@@ -108,7 +112,8 @@ export default function ProductsPage() {
     () => rows.filter((row) => row.is_published).length,
     [rows],
   )
-  const isReorderLocked = search.trim().length > 0 || statusFilter.length > 0
+  const isReorderLocked =
+    search.trim().length > 0 || statusFilter.length > 0 || imageFilter.length > 0
 
   return (
     <div className={styles.page}>
@@ -117,8 +122,8 @@ export default function ProductsPage() {
           <p className={styles.eyebrow}>Каталог</p>
           <h1 className={styles.title}>Товары</h1>
           <p className={styles.subtitle}>
-            Фильтруйте каталог по категории и статусу, ищите по совпадениям в названии,
-            slug, SKU и названии раздела.
+            Фильтруйте каталог по категории, статусу и наличию фото, ищите по совпадениям
+            в названии, slug, SKU и названии раздела.
           </p>
         </div>
 
@@ -177,6 +182,15 @@ export default function ProductsPage() {
               <option value="">Любой статус</option>
               <option value="true">Опубликованные</option>
               <option value="false">Скрытые</option>
+            </select>
+            <select
+              className={styles.select}
+              value={imageFilter}
+              onChange={(event) => setImageFilter(event.target.value)}
+            >
+              <option value="">Любые изображения</option>
+              <option value="false">Без изображения</option>
+              <option value="true">С изображением</option>
             </select>
           </div>
 
@@ -259,7 +273,7 @@ export default function ProductsPage() {
 
       {isReorderLocked ? (
         <div className={styles.inlineNotice}>
-          Перестановка временно отключена, пока включён поиск или фильтр по статусу.
+          Перестановка временно отключена, пока включён поиск или один из фильтров.
           Очистите их, чтобы менять порядок товаров.
         </div>
       ) : null}

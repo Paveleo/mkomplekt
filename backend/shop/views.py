@@ -1654,6 +1654,7 @@ def admin_products_view(request):
         category_id = str(request.query_params.get("category_id") or "").strip()
         search = str(request.query_params.get("search") or "").strip()
         is_published = str(request.query_params.get("is_published") or "").strip().lower()
+        has_image = str(request.query_params.get("has_image") or "").strip().lower()
 
         queryset = (
             Product.objects.all()
@@ -1665,6 +1666,10 @@ def admin_products_view(request):
             queryset = queryset.filter(category_id=category_id)
         if is_published in {"true", "false"}:
             queryset = queryset.filter(is_published=is_published == "true")
+        if has_image == "false":
+            queryset = queryset.exclude(id__in=ProductImage.objects.values("product_id"))
+        elif has_image == "true":
+            queryset = queryset.filter(id__in=ProductImage.objects.values("product_id"))
         if search:
             queryset = queryset.filter(
                 build_text_match_query(search, ("title", "slug", "sku", "category__title"))

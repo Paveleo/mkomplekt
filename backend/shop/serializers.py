@@ -66,6 +66,30 @@ class MediaAutoparseSerializer(serializers.Serializer):
     published_only = serializers.BooleanField(required=False, default=False)
 
 
+class MediaSearchSerializer(serializers.Serializer):
+    mode = serializers.ChoiceField(choices=["missing", "all"], required=False, default="missing")
+    source_mode = serializers.ChoiceField(choices=["official", "mixed", "web"], required=False, default="mixed")
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=50, default=10)
+    candidates_limit = serializers.IntegerField(required=False, min_value=1, max_value=10, default=5)
+    published_only = serializers.BooleanField(required=False, default=False)
+
+
+class MediaApplySerializer(serializers.Serializer):
+    image_url = serializers.URLField(required=False)
+    image_urls = serializers.ListField(
+        child=serializers.URLField(),
+        required=False,
+        allow_empty=False,
+    )
+
+    def validate(self, attrs):
+        image_url = attrs.get("image_url")
+        image_urls = attrs.get("image_urls") or []
+        if not image_url and not image_urls:
+            raise serializers.ValidationError({"detail": "IMAGE_URL_REQUIRED"})
+        return attrs
+
+
 class SortSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     sort = serializers.IntegerField()

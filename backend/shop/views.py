@@ -15,7 +15,12 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from .authentication import CsrfExemptSessionAuthentication
-from .import_sources import autoparse_category_image_source, autoparse_product_image_sources
+from .import_sources import (
+    autoparse_category_image_source,
+    autoparse_product_image_sources,
+    search_category_image_candidates,
+    search_product_image_candidates,
+)
 from .models import Cart, CartItem, Category, ContactRequest, Order, OrderItem, Product, ProductImage, Review, User
 from .permissions import IsAdminUserCookie
 from .serializers import (
@@ -26,7 +31,9 @@ from .serializers import (
     ContactRequestStatusSerializer,
     CreateOrderSerializer,
     LoginSerializer,
+    MediaApplySerializer,
     MediaAutoparseSerializer,
+    MediaSearchSerializer,
     OrderStatusSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
@@ -1572,6 +1579,31 @@ def empty_media_import_stats(*, scope: str, mode: str, limit: int, published_onl
     return stats
 
 
+def serialize_media_search_target_category(request, category: Category) -> dict[str, object]:
+    return {
+        "id": str(category.id),
+        "title": category.title,
+        "slug": category.slug,
+        "parent_title": category.parent.title if category.parent_id else None,
+        "image_url": build_media_url(request, category.image_url),
+    }
+
+
+def serialize_media_search_target_product(request, product: Product) -> dict[str, object]:
+    return {
+        "id": str(product.id),
+        "title": product.title,
+        "slug": product.slug,
+        "sku": product.sku,
+        "category_title": product.category.title,
+        "image_count": product.images.count(),
+        "images": [
+            {"id": str(image.id), "url": build_media_url(request, image.image_path), "sort": image.sort}
+            for image in product.images.all()
+        ],
+    }
+
+
 def autoparse_category_media_batch(*, mode: str, limit: int) -> dict[str, object]:
     queryset = Category.objects.select_related("parent").order_by("parent_id", "sort", "title")
     if mode == "missing":
@@ -1928,3 +1960,138 @@ def admin_media_import_products_view(request):
         published_only=published_only,
     )
     return Response({"message": "OK", "stats": stats})
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_search_categories_view(request):
+    serializer = MediaSearchSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    mode = serializer.validated_data["mode"]
+    source_mode = serializer.validated_data["source_mode"]
+    limit = serializer.validated_data["limit"]
+    candidates_limit = serializer.validated_data["candidates_limit"]
+
+    queryset = Category.objects.select_related("parent").order_by("sort", "title")
+    if mode == "missing":
+        queryset = queryset.filter(Q(image_url__isnull=True) | Q(image_url=""))
+
+    rows = list(queryset[:limit])
+    results: list[dict[str, object]] = []
+    for category in rows:
+        candidates = search_category_image_candidates(
+            category.title,
+            parent_title=category.parent.title if category.parent_id else None,
+            slug=category.slug,
+            source_mode=source_mode,
+            limit=candidates_limit,
+        )
+        results.append(
+            {
+                "target": serialize_media_search_target_category(request, category),
+                "candidates": candidates,
+            }
+        )
+
+    return Response(
+        {
+            "message": "OK",
+            "scope": "categories",
+            "mode": mode,
+            "source_mode": source_mode,
+            "results": results,
+        }
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_search_products_view(request):
+    serializer = MediaSearchSerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    mode = serializer.validated_data["mode"]
+    source_mode = serializer.validated_data["source_mode"]
+    limit = serializer.validated_data["limit"]
+    candidates_limit = serializer.validated_data["candidates_limit"]
+    published_only = serializer.validated_data["published_only"]
+
+    queryset = Product.objects.select_related("category").prefetch_related("images").order_by("category_id", "sort", "-created_at")
+    if published_only:
+        queryset = queryset.filter(is_published=True)
+    if mode == "missing":
+        queryset = queryset.exclude(id__in=ProductImage.objects.values("product_id"))
+
+    rows = list(queryset[:limit])
+    results: list[dict[str, object]] = []
+    for product in rows:
+        candidates = search_product_image_candidates(
+            product.title,
+            sku=product.sku,
+            category_title=product.category.title,
+            category_slug=product.category.slug,
+            source_mode=source_mode,
+            limit=candidates_limit,
+        )
+        results.append(
+            {
+                "target": serialize_media_search_target_product(request, product),
+                "candidates": candidates,
+            }
+        )
+
+    return Response(
+        {
+            "message": "OK",
+            "scope": "products",
+            "mode": mode,
+            "source_mode": source_mode,
+            "results": results,
+        }
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_search_apply_category_view(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    serializer = MediaApplySerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    image_url = serializer.validated_data.get("image_url") or (serializer.validated_data.get("image_urls") or [None])[0]
+    stored_path = materialize_category_image(str(category.id), image_url)
+    if not stored_path:
+      return Response({"detail": "IMAGE_DOWNLOAD_FAILED"}, status=status.HTTP_400_BAD_REQUEST)
+
+    category.image_url = stored_path
+    category.save(update_fields=["image_url"])
+    return Response({"message": "OK", "target": serialize_media_search_target_category(request, category)})
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_media_search_apply_product_view(request, product_id):
+    product = get_object_or_404(Product.objects.select_related("category").prefetch_related("images"), pk=product_id)
+    serializer = MediaApplySerializer(data=request.data or {})
+    serializer.is_valid(raise_exception=True)
+
+    image_urls = serializer.validated_data.get("image_urls") or []
+    image_url = serializer.validated_data.get("image_url")
+    if image_url:
+        image_urls = [image_url, *image_urls]
+
+    stored_count = replace_imported_product_images(product, image_urls)
+    if stored_count <= 0:
+        return Response({"detail": "IMAGE_DOWNLOAD_FAILED"}, status=status.HTTP_400_BAD_REQUEST)
+
+    product.refresh_from_db()
+    return Response({"message": "OK", "target": serialize_media_search_target_product(request, product)})

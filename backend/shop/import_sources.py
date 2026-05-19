@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import urllib.parse
 import xml.etree.ElementTree as ET
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 
 from .utils import fetch_url_text
@@ -31,6 +32,10 @@ IMG_RE = re.compile(
     re.IGNORECASE,
 )
 BOYARD_SEARCH_LINK_RE = re.compile(r'href="(?:https://www\.boyard\.biz)?(/catalog/[^"#?]+)"')
+DUCKDUCKGO_RESULT_LINK_RE = re.compile(
+    r'<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"',
+    re.IGNORECASE,
+)
 
 BOYARD_CATEGORY_RULES = [
     (("ручк",), f"{BOYARD_BASE_URL}/catalog/handles"),
@@ -298,6 +303,99 @@ def filter_urls_with_codes(urls: tuple[str, ...], codes: list[str], *, required_
     return results
 
 
+@dataclass
+class SearchCandidate:
+    image_url: str
+    page_url: str
+    title: str
+    source_domain: str
+    source_type: str
+    score: int
+
+
+def candidate_to_dict(candidate: SearchCandidate) -> dict[str, object]:
+    return asdict(candidate)
+
+
+def source_domain(url: str) -> str:
+    return (urllib.parse.urlparse(url).netloc or "").lower()
+
+
+def unwrap_search_result_url(url: str) -> str:
+    absolute = absolutize("https://duckduckgo.com", url) or url
+    parsed = urllib.parse.urlparse(absolute)
+    query = urllib.parse.parse_qs(parsed.query)
+    redirect = query.get("uddg", [])
+    if redirect:
+        return urllib.parse.unquote(redirect[0])
+    return absolute
+
+
+@lru_cache(maxsize=256)
+def duckduckgo_result_links(query: str) -> tuple[str, ...]:
+    normalized = normalize_lookup_text(query)
+    if not normalized:
+        return ()
+
+    encoded = urllib.parse.quote(normalized)
+    html = fetch_url_text(f"https://html.duckduckgo.com/html/?q={encoded}", timeout=25)
+    links: list[str] = []
+    for match in DUCKDUCKGO_RESULT_LINK_RE.finditer(html):
+        candidate = unwrap_search_result_url(match.group(1))
+        if not candidate.startswith(("http://", "https://")):
+            continue
+        links.append(candidate)
+    return tuple(dict.fromkeys(links))
+
+
+def build_candidates_from_urls(
+    query: str,
+    urls: list[str],
+    *,
+    codes: list[str] | None = None,
+    source_type: str,
+    limit: int = 5,
+) -> list[SearchCandidate]:
+    results: list[SearchCandidate] = []
+    seen_images: set[str] = set()
+    for url in urls:
+        try:
+            title, image_url = fetch_page_meta(url)
+        except Exception:
+            continue
+        if not image_url or image_url in seen_images:
+            continue
+        score = score_candidate(query, url, title, codes=codes or [])
+        if score <= 0:
+            continue
+        seen_images.add(image_url)
+        results.append(
+            SearchCandidate(
+                image_url=image_url,
+                page_url=url,
+                title=title or query,
+                source_domain=source_domain(url),
+                source_type=source_type,
+                score=score,
+            )
+        )
+    results.sort(key=lambda item: item.score, reverse=True)
+    return results[:limit]
+
+
+def merge_candidates(*candidate_groups: list[SearchCandidate], limit: int = 5) -> list[SearchCandidate]:
+    merged: list[SearchCandidate] = []
+    seen_images: set[str] = set()
+    for group in candidate_groups:
+        for candidate in group:
+            if candidate.image_url in seen_images:
+                continue
+            seen_images.add(candidate.image_url)
+            merged.append(candidate)
+    merged.sort(key=lambda item: item.score, reverse=True)
+    return merged[:limit]
+
+
 def autoparse_category_image_source(title: str, *, parent_title: str | None = None, slug: str | None = None) -> str | None:
     context = " ".join(filter(None, [title, parent_title, slug]))
 
@@ -389,3 +487,150 @@ def autoparse_product_image_sources(
             pass
 
     return []
+
+
+def search_category_image_candidates(
+    title: str,
+    *,
+    parent_title: str | None = None,
+    slug: str | None = None,
+    source_mode: str = "mixed",
+    limit: int = 5,
+) -> list[dict[str, object]]:
+    context = " ".join(filter(None, [title, parent_title, slug]))
+    official_candidates: list[SearchCandidate] = []
+    web_candidates: list[SearchCandidate] = []
+
+    if source_mode in {"official", "mixed"}:
+        for rules in (
+            BOYARD_CATEGORY_RULES,
+            MAKMART_CATEGORY_RULES,
+            SLOTEX_CATEGORY_RULES,
+            KRONOSPAN_CATEGORY_RULES,
+            EGGER_CATEGORY_RULES,
+        ):
+            category_url = rule_based_category_url(context, rules)
+            if not category_url:
+                continue
+            try:
+                title_value, image_url = fetch_page_meta(category_url)
+            except Exception:
+                continue
+            if not image_url:
+                continue
+            official_candidates.append(
+                SearchCandidate(
+                    image_url=image_url,
+                    page_url=category_url,
+                    title=title_value or title,
+                    source_domain=source_domain(category_url),
+                    source_type="official",
+                    score=110,
+                )
+            )
+
+    if source_mode in {"web", "mixed"}:
+        query = " ".join(filter(None, [title, parent_title, slug, "мебель материалы"]))
+        try:
+            urls = list(duckduckgo_result_links(query))[:12]
+            web_candidates = build_candidates_from_urls(
+                query,
+                urls,
+                source_type="web",
+                limit=limit,
+            )
+        except Exception:
+            web_candidates = []
+
+    return [candidate_to_dict(candidate) for candidate in merge_candidates(official_candidates, web_candidates, limit=limit)]
+
+
+def search_product_image_candidates(
+    title: str,
+    *,
+    sku: str | None = None,
+    category_title: str | None = None,
+    category_slug: str | None = None,
+    source_mode: str = "mixed",
+    limit: int = 5,
+) -> list[dict[str, object]]:
+    query = " ".join(filter(None, [title, sku, category_title]))
+    category_context = " ".join(filter(None, [category_title, category_slug]))
+    codes = code_tokens(title, sku)
+    normalized_context = normalize_lookup_text(category_context)
+
+    hardware_context = any(
+        keyword in normalized_context
+        for keyword in ("СЂСѓС‡Рє", "РїРµС‚Р»", "С„СѓСЂРЅРёС‚", "РЅР°РїСЂР°РІР»СЏ", "Р·Р°РјРє", "РєСЂРµРїРµР¶", "Р»РёС„С‚", "РѕРїРѕСЂ")
+    )
+    board_context = any(
+        keyword in normalized_context
+        for keyword in ("Р»РґСЃРї", "СЃС‚РѕР»РµС€", "С„Р°СЃР°Рґ", "РїР°РЅРµР»", "РїР»РёС‚", "РґРµРєРѕСЂ", "РєРѕРјРїР°РєС‚", "РєСЂРѕРјРє")
+    )
+
+    official_candidates: list[SearchCandidate] = []
+    web_candidates: list[SearchCandidate] = []
+
+    if source_mode in {"official", "mixed"}:
+        if hardware_context:
+            try:
+                candidates = list(boyard_search_links(sku or title))
+                official_candidates.extend(
+                    build_candidates_from_urls(query, candidates, codes=codes, source_type="official", limit=limit)
+                )
+            except Exception:
+                pass
+
+            try:
+                makmart_candidates = [
+                    url
+                    for url in makmart_sitemap_urls()
+                    if "/catalog/" in url.lower()
+                ][:120]
+                official_candidates.extend(
+                    build_candidates_from_urls(query, makmart_candidates, codes=codes, source_type="official", limit=limit)
+                )
+            except Exception:
+                pass
+
+        if board_context and codes:
+            try:
+                slotex_candidates = filter_urls_with_codes(slotex_sitemap_urls(), codes, required_fragment="/catalog/")
+                official_candidates.extend(
+                    build_candidates_from_urls(query, slotex_candidates[:60], codes=codes, source_type="official", limit=limit)
+                )
+            except Exception:
+                pass
+
+            try:
+                kronospan_candidates = filter_urls_with_codes(kronospan_sitemap_urls(), codes)
+                official_candidates.extend(
+                    build_candidates_from_urls(query, kronospan_candidates[:60], codes=codes, source_type="official", limit=limit)
+                )
+            except Exception:
+                pass
+
+            try:
+                egger_candidates = filter_urls_with_codes(egger_sitemap_urls(), codes)
+                official_candidates.extend(
+                    build_candidates_from_urls(query, egger_candidates[:60], codes=codes, source_type="official", limit=limit)
+                )
+            except Exception:
+                pass
+
+    if source_mode in {"web", "mixed"}:
+        try:
+            web_query = " ".join(filter(None, [title, sku, category_title, "купить фото"]))
+            web_urls = list(duckduckgo_result_links(web_query))[:12]
+            web_candidates = build_candidates_from_urls(
+                web_query,
+                web_urls,
+                codes=codes,
+                source_type="web",
+                limit=limit,
+            )
+        except Exception:
+            web_candidates = []
+
+    merged = merge_candidates(official_candidates, web_candidates, limit=limit)
+    return [candidate_to_dict(candidate) for candidate in merged]

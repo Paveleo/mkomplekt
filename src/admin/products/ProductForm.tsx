@@ -1,217 +1,254 @@
-import { useEffect, useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/api';
-import styles from '../admin.module.css';
+import { useEffect, useRef, useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { useNavigate, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { apiRequest } from '@/lib/api'
+import styles from '../admin.module.css'
 
 type FormValues = {
-  title: string;
-  sku?: string;
-  category_id: string;
-  price?: number | string;
-  thickness?: number | string;
-  color?: string;
-  material?: string;
-  description?: string;
-  is_published?: boolean;
-};
+  title: string
+  sku?: string
+  category_id: string
+  price?: number | string
+  thickness?: number | string
+  color?: string
+  material?: string
+  description?: string
+  is_published?: boolean
+}
 
 type CategoryOption = {
-  id: string;
-  title: string;
-};
+  id: string
+  title: string
+}
 
 type ProductImage = {
-  id: string;
-  url: string;
-  sort: number;
-};
+  id: string
+  url: string
+  sort: number
+}
 
 type ProductResponse = {
-  id: string;
-  title: string;
-  sku?: string | null;
-  category_id: string;
-  price?: number | null;
-  thickness?: number | null;
-  color?: string | null;
-  material?: string | null;
-  description?: string | null;
-  is_published?: boolean;
-  images?: ProductImage[];
-};
+  id: string
+  title: string
+  sku?: string | null
+  category_id: string
+  price?: number | null
+  thickness?: number | null
+  color?: string | null
+  material?: string | null
+  description?: string | null
+  is_published?: boolean
+  images?: ProductImage[]
+}
+
+const defaultValues: FormValues = {
+  title: '',
+  sku: '',
+  category_id: '',
+  price: '',
+  thickness: '',
+  color: '',
+  material: '',
+  description: '',
+  is_published: true,
+}
 
 export default function ProductForm() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const {
     register,
     handleSubmit,
-    setValue,
+    reset,
     watch,
     formState: { isSubmitting },
-  } = useForm<FormValues>();
+  } = useForm<FormValues>({
+    defaultValues,
+  })
 
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
-  const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [fileInputKey, setFileInputKey] = useState(0);
-  const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [existingImages, setExistingImages] = useState<ProductImage[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const [fileInputKey, setFileInputKey] = useState(0)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [isLoadingProduct, setIsLoadingProduct] = useState(Boolean(id))
 
   useEffect(() => {
-    let active = true;
+    let active = true
 
     const load = async () => {
-      const categoriesResponse = await apiRequest<CategoryOption[]>('/api/admin/categories/options');
+      setError('')
+      const categoriesResponse = await apiRequest<CategoryOption[]>('/api/admin/categories/options')
       if (!active) {
-        return;
+        return
       }
 
-      setCategories(categoriesResponse || []);
+      setCategories(categoriesResponse || [])
 
       if (!id) {
-        setValue('is_published', true as never);
-        return;
+        reset(defaultValues)
+        setExistingImages([])
+        setSelectedFiles([])
+        setPreviewUrls((current) => {
+          current.forEach((url) => URL.revokeObjectURL(url))
+          return []
+        })
+        setIsLoadingProduct(false)
+        return
       }
 
-      const product = await apiRequest<ProductResponse>(`/api/admin/products/${id}`);
+      const product = await apiRequest<ProductResponse>(`/api/admin/products/${id}`)
       if (!active || !product) {
-        return;
+        return
       }
 
-      setValue('title', product.title as never);
-      setValue('sku', (product.sku || '') as never);
-      setValue('category_id', product.category_id as never);
-      setValue('price', (product.price ?? '') as never);
-      setValue('thickness', (product.thickness ?? '') as never);
-      setValue('color', (product.color || '') as never);
-      setValue('material', (product.material || '') as never);
-      setValue('description', (product.description || '') as never);
-      setValue('is_published', Boolean(product.is_published) as never);
-      setExistingImages(product.images || []);
-    };
+      reset({
+        title: product.title,
+        sku: product.sku || '',
+        category_id: product.category_id,
+        price: product.price ?? '',
+        thickness: product.thickness ?? '',
+        color: product.color || '',
+        material: product.material || '',
+        description: product.description || '',
+        is_published: Boolean(product.is_published),
+      })
+      setExistingImages(product.images || [])
+      setSelectedFiles([])
+      setPreviewUrls((current) => {
+        current.forEach((url) => URL.revokeObjectURL(url))
+        return []
+      })
+      setIsLoadingProduct(false)
+    }
 
     load().catch((requestError) => {
       if (!active) {
-        return;
+        return
       }
-      setError((requestError as Error).message || 'Не удалось загрузить форму товара.');
-    });
+      setError((requestError as Error).message || 'Не удалось загрузить форму товара.')
+      setIsLoadingProduct(false)
+    })
 
     return () => {
-      active = false;
-    };
-  }, [id, setValue]);
+      active = false
+    }
+  }, [id, reset])
 
   useEffect(() => {
     return () => {
-      previewUrls.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [previewUrls]);
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [previewUrls])
 
-  const title = watch('title') || '';
-  const categoryId = watch('category_id') || '';
-  const price = watch('price');
-  const thickness = watch('thickness');
-  const color = watch('color') || '';
-  const material = watch('material') || '';
-  const isPublished = Boolean(watch('is_published'));
+  const title = watch('title') || ''
+  const categoryId = watch('category_id') || ''
+  const price = watch('price')
+  const thickness = watch('thickness')
+  const color = watch('color') || ''
+  const material = watch('material') || ''
+  const isPublished = Boolean(watch('is_published'))
+  const isFormLocked = isLoadingProduct || isSubmitting
 
   const syncPreviewUrls = (files: File[]) => {
     setPreviewUrls((current) => {
-      current.forEach((url) => URL.revokeObjectURL(url));
-      return files.map((file) => URL.createObjectURL(file));
-    });
-  };
+      current.forEach((url) => URL.revokeObjectURL(url))
+      return files.map((file) => URL.createObjectURL(file))
+    })
+  }
 
   const handleFilesSelected = (files: FileList | null | undefined) => {
-    const nextFiles = files ? Array.from(files) : [];
+    if (isFormLocked) {
+      return
+    }
+
+    const nextFiles = files ? Array.from(files) : []
     if (nextFiles.length === 0) {
-      return;
+      return
     }
 
     setSelectedFiles((current) => {
-      const mergedFiles = [...current, ...nextFiles];
-      syncPreviewUrls(mergedFiles);
-      return mergedFiles;
-    });
+      const mergedFiles = [...current, ...nextFiles]
+      syncPreviewUrls(mergedFiles)
+      return mergedFiles
+    })
 
-    setFileInputKey((current) => current + 1);
-  };
+    setFileInputKey((current) => current + 1)
+  }
 
   const removeSelectedFile = (fileIndex: number) => {
     setSelectedFiles((current) => {
-      const nextFiles = current.filter((_, index) => index !== fileIndex);
-      syncPreviewUrls(nextFiles);
-      return nextFiles;
-    });
-  };
+      const nextFiles = current.filter((_, index) => index !== fileIndex)
+      syncPreviewUrls(nextFiles)
+      return nextFiles
+    })
+  }
 
   const removeExistingImage = (imageId: string) => {
-    setExistingImages((current) => current.filter((image) => image.id !== imageId));
-  };
+    setExistingImages((current) => current.filter((image) => image.id !== imageId))
+  }
 
   const onSubmit = async (values: FormValues) => {
-    setError('');
-    setNotice('');
+    setError('')
+    setNotice('')
 
     if (!values.category_id) {
-      setError('Выберите категорию товара.');
-      return;
+      setError('Выберите категорию товара.')
+      return
     }
 
     try {
-      const formData = new FormData();
-      formData.set('title', values.title);
-      formData.set('sku', values.sku || '');
-      formData.set('category_id', values.category_id);
-      formData.set('price', values.price === '' || values.price === undefined ? '' : String(values.price));
-      formData.set('thickness', values.thickness === '' || values.thickness === undefined ? '' : String(values.thickness));
-      formData.set('color', values.color || '');
-      formData.set('material', values.material || '');
-      formData.set('description', values.description || '');
-      formData.set('is_published', values.is_published ? 'true' : 'false');
+      const formData = new FormData()
+      formData.set('title', values.title)
+      formData.set('sku', values.sku || '')
+      formData.set('category_id', values.category_id)
+      formData.set('price', values.price === '' || values.price === undefined ? '' : String(values.price))
+      formData.set('thickness', values.thickness === '' || values.thickness === undefined ? '' : String(values.thickness))
+      formData.set('color', values.color || '')
+      formData.set('material', values.material || '')
+      formData.set('description', values.description || '')
+      formData.set('is_published', values.is_published ? 'true' : 'false')
 
       existingImages.forEach((image) => {
-        formData.append('keep_image_ids', image.id);
-      });
+        formData.append('keep_image_ids', image.id)
+      })
 
       selectedFiles.forEach((file) => {
-        formData.append('images', file);
-      });
+        formData.append('images', file)
+      })
 
       if (id) {
         await apiRequest(`/api/admin/products/${id}`, {
           method: 'PUT',
           body: formData,
-        });
+        })
       } else {
         await apiRequest('/api/admin/products', {
           method: 'POST',
           body: formData,
-        });
+        })
       }
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['products-admin'] }),
         queryClient.invalidateQueries({ queryKey: ['products'] }),
         queryClient.invalidateQueries({ queryKey: ['product'] }),
-      ]);
+      ])
 
-      setNotice(id ? 'Карточка товара обновлена.' : 'Товар добавлен в каталог.');
-      navigate('/admin/products');
+      setNotice(id ? 'Карточка товара обновлена.' : 'Товар добавлен в каталог.')
+      navigate('/admin/products')
     } catch (requestError: any) {
-      setError(requestError?.message ?? 'Не удалось сохранить товар.');
+      setError(requestError?.message ?? 'Не удалось сохранить товар.')
     }
-  };
+  }
 
-  const activeCategory = categories.find((item) => item.id === categoryId)?.title;
-  const galleryCount = existingImages.length + selectedFiles.length;
+  const activeCategory = categories.find((item) => item.id === categoryId)?.title
+  const galleryCount = existingImages.length + selectedFiles.length
 
   return (
     <div className={styles.page}>
@@ -232,224 +269,232 @@ export default function ProductForm() {
         </div>
       </div>
 
+      {isLoadingProduct ? (
+        <div className={styles.inlineNotice}>
+          Загружаем карточку товара. Поля временно заблокированы, чтобы данные не перетёрлись ответом сервера.
+        </div>
+      ) : null}
+
       {error ? <div className={styles.errorNotice}>{error}</div> : null}
       {notice ? <div className={styles.successNotice}>{notice}</div> : null}
 
       <div className={styles.contentSplit}>
         <form onSubmit={handleSubmit(onSubmit)} className={styles.formStack}>
-          <section className={styles.formSection}>
-            <h2 className={styles.sectionTitle}>Основа</h2>
-            <p className={styles.sectionDescription}>
-              Название, категория и артикул формируют понятную карточку для каталога и поиска.
-            </p>
+          <fieldset className={styles.formStack} disabled={isFormLocked}>
+            <section className={styles.formSection}>
+              <h2 className={styles.sectionTitle}>Основа</h2>
+              <p className={styles.sectionDescription}>
+                Название, категория и артикул формируют понятную карточку для каталога и поиска.
+              </p>
 
-            <div className={styles.formGrid}>
+              <div className={styles.formGrid}>
+                <label className={styles.fieldWide}>
+                  <span className={styles.fieldLabel}>Название</span>
+                  <input
+                    className={styles.input}
+                    placeholder="Например: Столешница дуб натуральный"
+                    {...register('title', { required: true })}
+                  />
+                  <span className={styles.fieldHint}>Понятное название для каталога и карточки товара.</span>
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>SKU</span>
+                  <input
+                    className={styles.input}
+                    placeholder="Артикул или внутренний код"
+                    {...register('sku')}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Категория</span>
+                  <select className={styles.select} {...register('category_id', { required: true })}>
+                    <option value="">Выберите категорию</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className={styles.formSection}>
+              <h2 className={styles.sectionTitle}>Характеристики</h2>
+              <p className={styles.sectionDescription}>
+                Эти поля можно заполнять по мере готовности карточки. Пустые значения не помешают сохранению.
+              </p>
+
+              <div className={styles.formGridCompact}>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Цена</span>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    step="0.01"
+                    placeholder="Например: 2590"
+                    {...register('price')}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Толщина</span>
+                  <input
+                    className={styles.input}
+                    type="number"
+                    step="0.1"
+                    placeholder="Например: 38"
+                    {...register('thickness')}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Цвет</span>
+                  <input
+                    className={styles.input}
+                    placeholder="Белый, графит, дуб"
+                    {...register('color')}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.formGrid}>
+                <label className={styles.fieldWide}>
+                  <span className={styles.fieldLabel}>Материал</span>
+                  <input
+                    className={styles.input}
+                    placeholder="ЛДСП, МДФ, пластик, металл"
+                    {...register('material')}
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className={styles.formSection}>
+              <h2 className={styles.sectionTitle}>Описание</h2>
+              <p className={styles.sectionDescription}>
+                Кратко опишите назначение, преимущества, размеры или особенности товара.
+              </p>
+
               <label className={styles.fieldWide}>
-                <span className={styles.fieldLabel}>Название</span>
-                <input
-                  className={styles.input}
-                  placeholder="Например: Столешница дуб натуральный"
-                  {...register('title', { required: true })}
-                />
-                <span className={styles.fieldHint}>Понятное название для каталога и карточки товара.</span>
-              </label>
-
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>SKU</span>
-                <input
-                  className={styles.input}
-                  placeholder="Артикул или внутренний код"
-                  {...register('sku')}
+                <span className={styles.fieldLabel}>Текст карточки</span>
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Например: Влагостойкая столешница для кухни, подходит для..."
+                  {...register('description')}
                 />
               </label>
+            </section>
 
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Категория</span>
-                <select className={styles.select} {...register('category_id', { required: true })}>
-                  <option value="">Выберите категорию</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          </section>
+            <section className={styles.formSection}>
+              <h2 className={styles.sectionTitle}>Галерея товара</h2>
+              <p className={styles.sectionDescription}>
+                Можно загрузить сразу несколько фото. При редактировании старые изображения можно
+                оставить частично, удалить или дополнить новыми.
+              </p>
 
-          <section className={styles.formSection}>
-            <h2 className={styles.sectionTitle}>Характеристики</h2>
-            <p className={styles.sectionDescription}>
-              Эти поля можно заполнять по мере готовности карточки. Пустые значения не помешают сохранению.
-            </p>
+              <div className={styles.dropzone}>
+                <label className={styles.fieldWide}>
+                  <span className={styles.fieldLabel}>Новые фотографии</span>
+                  <input
+                    key={fileInputKey}
+                    ref={fileInputRef}
+                    className={styles.input}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(event) => handleFilesSelected(event.target.files)}
+                  />
+                  <span className={styles.fieldHint}>
+                    Можно выбрать несколько файлов сразу, а потом ещё раз нажать выбор и добавить следующую пачку.
+                  </span>
+                </label>
 
-            <div className={styles.formGridCompact}>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Цена</span>
-                <input
-                  className={styles.input}
-                  type="number"
-                  step="0.01"
-                  placeholder="Например: 2590"
-                  {...register('price')}
-                />
-              </label>
+                {selectedFiles.length > 0 ? (
+                  <div className={styles.inlineNotice}>
+                    Новых файлов выбрано: <strong>{selectedFiles.length}</strong>
+                  </div>
+                ) : null}
+              </div>
 
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Толщина</span>
-                <input
-                  className={styles.input}
-                  type="number"
-                  step="0.1"
-                  placeholder="Например: 38"
-                  {...register('thickness')}
-                />
-              </label>
+              {existingImages.length > 0 ? (
+                <div className={styles.formStack}>
+                  <div className={styles.inlineNotice}>
+                    Текущих изображений: <strong>{existingImages.length}</strong>
+                  </div>
 
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Цвет</span>
-                <input
-                  className={styles.input}
-                  placeholder="Белый, графит, дуб"
-                  {...register('color')}
-                />
-              </label>
-            </div>
-
-            <div className={styles.formGrid}>
-              <label className={styles.fieldWide}>
-                <span className={styles.fieldLabel}>Материал</span>
-                <input
-                  className={styles.input}
-                  placeholder="ЛДСП, МДФ, пластик, металл"
-                  {...register('material')}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className={styles.formSection}>
-            <h2 className={styles.sectionTitle}>Описание</h2>
-            <p className={styles.sectionDescription}>
-              Кратко опишите назначение, преимущества, размеры или особенности товара.
-            </p>
-
-            <label className={styles.fieldWide}>
-              <span className={styles.fieldLabel}>Текст карточки</span>
-              <textarea
-                className={styles.textarea}
-                placeholder="Например: Влагостойкая столешница для кухни, подходит для..."
-                {...register('description')}
-              />
-            </label>
-          </section>
-
-          <section className={styles.formSection}>
-            <h2 className={styles.sectionTitle}>Галерея товара</h2>
-            <p className={styles.sectionDescription}>
-              Можно загрузить сразу несколько фото. При редактировании старые изображения можно
-              оставить частично, удалить или дополнить новыми.
-            </p>
-
-            <div className={styles.dropzone}>
-              <label className={styles.fieldWide}>
-                <span className={styles.fieldLabel}>Новые фотографии</span>
-                <input
-                  key={fileInputKey}
-                  ref={fileInputRef}
-                  className={styles.input}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={(event) => handleFilesSelected(event.target.files)}
-                />
-                <span className={styles.fieldHint}>
-                  Можно выбрать несколько файлов сразу, а потом ещё раз нажать выбор и добавить следующую пачку.
-                </span>
-              </label>
-
-              {selectedFiles.length > 0 ? (
-                <div className={styles.inlineNotice}>
-                  Новых файлов выбрано: <strong>{selectedFiles.length}</strong>
+                  <div className={styles.previewGrid}>
+                    {existingImages.map((image, index) => (
+                      <div key={image.id} className={styles.previewCard}>
+                        <img className={styles.previewImage} src={image.url} alt={`existing-${index + 1}`} />
+                        <div className={styles.previewInfo}>Текущее фото #{index + 1}</div>
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <button
+                            type="button"
+                            className={styles.buttonDanger}
+                            onClick={() => removeExistingImage(image.id)}
+                          >
+                            Удалить из галереи
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
-            </div>
 
-            {existingImages.length > 0 ? (
-              <div className={styles.formStack}>
-                <div className={styles.inlineNotice}>
-                  Текущих изображений: <strong>{existingImages.length}</strong>
-                </div>
+              {previewUrls.length > 0 ? (
+                <div className={styles.formStack}>
+                  <div className={styles.inlineNotice}>
+                    К добавлению подготовлено: <strong>{previewUrls.length}</strong>
+                  </div>
 
-                <div className={styles.previewGrid}>
-                  {existingImages.map((image, index) => (
-                    <div key={image.id} className={styles.previewCard}>
-                      <img className={styles.previewImage} src={image.url} alt={`existing-${index + 1}`} />
-                      <div className={styles.previewInfo}>Текущее фото #{index + 1}</div>
-                      <div style={{ padding: '0 12px 12px' }}>
-                        <button
-                          type="button"
-                          className={styles.buttonDanger}
-                          onClick={() => removeExistingImage(image.id)}
-                        >
-                          Удалить из галереи
-                        </button>
+                  <div className={styles.previewGrid}>
+                    {previewUrls.map((url, index) => (
+                      <div key={url} className={styles.previewCard}>
+                        <img className={styles.previewImage} src={url} alt={`preview-${index + 1}`} />
+                        <div className={styles.previewInfo}>{selectedFiles[index]?.name || `Файл ${index + 1}`}</div>
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <button
+                            type="button"
+                            className={styles.buttonGhost}
+                            onClick={() => removeSelectedFile(index)}
+                          >
+                            Убрать из загрузки
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+
+            <section className={styles.formSection}>
+              <h2 className={styles.sectionTitle}>Публикация</h2>
+              <div className={styles.switchRow}>
+                <input type="checkbox" {...register('is_published')} />
+                <div className={styles.switchLabel}>
+                  <span className={styles.switchTitle}>Показывать товар на сайте</span>
+                  <span className={styles.switchText}>
+                    Если выключить, карточка останется в админке, но не будет видна в каталоге.
+                  </span>
                 </div>
               </div>
-            ) : null}
-
-            {previewUrls.length > 0 ? (
-              <div className={styles.formStack}>
-                <div className={styles.inlineNotice}>
-                  К добавлению подготовлено: <strong>{previewUrls.length}</strong>
-                </div>
-
-                <div className={styles.previewGrid}>
-                  {previewUrls.map((url, index) => (
-                    <div key={url} className={styles.previewCard}>
-                      <img className={styles.previewImage} src={url} alt={`preview-${index + 1}`} />
-                      <div className={styles.previewInfo}>{selectedFiles[index]?.name || `Файл ${index + 1}`}</div>
-                      <div style={{ padding: '0 12px 12px' }}>
-                        <button
-                          type="button"
-                          className={styles.buttonGhost}
-                          onClick={() => removeSelectedFile(index)}
-                        >
-                          Убрать из загрузки
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </section>
-
-          <section className={styles.formSection}>
-            <h2 className={styles.sectionTitle}>Публикация</h2>
-            <div className={styles.switchRow}>
-              <input type="checkbox" {...register('is_published')} />
-              <div className={styles.switchLabel}>
-                <span className={styles.switchTitle}>Показывать товар на сайте</span>
-                <span className={styles.switchText}>
-                  Если выключить, карточка останется в админке, но не будет видна в каталоге.
-                </span>
-              </div>
-            </div>
-          </section>
+            </section>
+          </fieldset>
 
           <div className={styles.actions}>
-            <button className={styles.buttonPrimary} disabled={isSubmitting}>
+            <button className={styles.buttonPrimary} disabled={isFormLocked}>
               {isSubmitting ? 'Сохраняю...' : id ? 'Сохранить изменения' : 'Создать товар'}
             </button>
             <button
               type="button"
               className={styles.buttonSecondary}
               onClick={() => navigate('/admin/products')}
-              disabled={isSubmitting}
+              disabled={isFormLocked}
             >
               Отмена
             </button>
@@ -496,5 +541,5 @@ export default function ProductForm() {
         </aside>
       </div>
     </div>
-  );
+  )
 }

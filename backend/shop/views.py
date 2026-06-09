@@ -172,6 +172,8 @@ def serialize_user(user: User) -> dict:
         "email": user.email,
         "full_name": user.full_name,
         "phone": user.phone,
+        "district": user.district,
+        "city": user.city,
         "is_admin": user.is_admin,
     }
 
@@ -329,11 +331,16 @@ def register_view(request):
     email = serializer.validated_data["email"].lower()
     if User.objects.filter(email=email).exists():
         return Response({"detail": "EMAIL_ALREADY_EXISTS"}, status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(phone=serializer.validated_data["phone"]).exists():
+        return Response({"detail": "PHONE_ALREADY_EXISTS"}, status=status.HTTP_400_BAD_REQUEST)
 
     user = User.objects.create_user(
         email=email,
         password=serializer.validated_data["password"],
-        full_name=(serializer.validated_data.get("full_name") or "").strip() or None,
+        full_name=serializer.validated_data["full_name"],
+        phone=serializer.validated_data["phone"],
+        district=serializer.validated_data["district"],
+        city=serializer.validated_data["city"],
     )
     login(request, user)
     return Response(serialize_user(user))
@@ -540,9 +547,15 @@ def profile_view(request):
 
     serializer = ProfileUpdateSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    request.user.full_name = (serializer.validated_data.get("full_name") or "").strip() or None
-    request.user.phone = (serializer.validated_data.get("phone") or "").strip() or None
-    request.user.save(update_fields=["full_name", "phone", "updated_at"])
+    next_phone = serializer.validated_data.get("phone")
+    if next_phone and User.objects.exclude(pk=request.user.pk).filter(phone=next_phone).exists():
+        return Response({"detail": "PHONE_ALREADY_EXISTS"}, status=status.HTTP_400_BAD_REQUEST)
+
+    request.user.full_name = serializer.validated_data["full_name"]
+    request.user.phone = next_phone
+    request.user.district = serializer.validated_data["district"]
+    request.user.city = serializer.validated_data["city"]
+    request.user.save(update_fields=["full_name", "phone", "district", "city", "updated_at"])
     return Response(serialize_user(request.user))
 
 

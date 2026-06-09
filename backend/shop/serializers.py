@@ -1,4 +1,75 @@
+import re
+
 from rest_framework import serializers
+
+
+SAKHA_DISTRICTS = {
+    "Абыйский район",
+    "Алданский район",
+    "Аллаиховский район",
+    "Амгинский район",
+    "Анабарский улус",
+    "Булунский улус",
+    "Верхневилюйский улус",
+    "Верхнеколымский улус",
+    "Верхоянский район",
+    "Вилюйский улус",
+    "Горный улус",
+    "Жиганский улус",
+    "Кобяйский улус",
+    "Ленский район",
+    "Мегино-Кангаласский улус",
+    "Мирнинский район",
+    "Момский район",
+    "Намский улус",
+    "Нерюнгринский район",
+    "Нижнеколымский район",
+    "Нюрбинский район",
+    "Оймяконский улус",
+    "Оленекский эвенкийский национальный район",
+    "Олекминский район",
+    "Среднеколымский улус",
+    "Сунтарский улус",
+    "Таттинский улус",
+    "Томпонский район",
+    "Усть-Алданский улус",
+    "Усть-Майский улус",
+    "Усть-Янский улус",
+    "Хангаласский улус",
+    "Чурапчинский улус",
+    "Эвено-Бытантайский национальный улус",
+    "Городской округ Якутск",
+    "Городской округ Жатай",
+}
+
+
+def normalize_ru_mobile_phone(value: str | None) -> str:
+    raw = str(value or "").strip()
+    digits = re.sub(r"\D+", "", raw)
+    if len(digits) == 11 and digits.startswith("8"):
+        digits = f"7{digits[1:]}"
+    elif len(digits) == 10:
+        digits = f"7{digits}"
+
+    if len(digits) != 11 or not digits.startswith("79"):
+        raise serializers.ValidationError({"detail": "INVALID_PHONE"})
+    if len(set(digits[-10:])) < 3:
+        raise serializers.ValidationError({"detail": "INVALID_PHONE"})
+    return f"+{digits}"
+
+
+def validate_sakha_district(value: str | None) -> str:
+    district = str(value or "").strip()
+    if district not in SAKHA_DISTRICTS:
+        raise serializers.ValidationError({"detail": "INVALID_DISTRICT"})
+    return district
+
+
+def normalize_required_text(value: str | None, error_code: str) -> str:
+    normalized = " ".join(str(value or "").strip().split())
+    if not normalized:
+        raise serializers.ValidationError({"detail": error_code})
+    return normalized
 
 
 class LoginSerializer(serializers.Serializer):
@@ -8,6 +79,18 @@ class LoginSerializer(serializers.Serializer):
 
 class RegisterSerializer(LoginSerializer):
     full_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    phone = serializers.CharField()
+    district = serializers.CharField()
+    city = serializers.CharField()
+
+    def validate(self, attrs):
+        if len(str(attrs.get("password") or "")) < 6:
+            raise serializers.ValidationError({"detail": "PASSWORD_TOO_SHORT"})
+        attrs["phone"] = normalize_ru_mobile_phone(attrs.get("phone"))
+        attrs["district"] = validate_sakha_district(attrs.get("district"))
+        attrs["city"] = normalize_required_text(attrs.get("city"), "CITY_REQUIRED")
+        attrs["full_name"] = normalize_required_text(attrs.get("full_name"), "FULL_NAME_REQUIRED")
+        return attrs
 
 
 class UserPublicSerializer(serializers.Serializer):
@@ -15,12 +98,23 @@ class UserPublicSerializer(serializers.Serializer):
     email = serializers.EmailField()
     full_name = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     phone = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    district = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    city = serializers.CharField(allow_blank=True, allow_null=True, required=False)
     is_admin = serializers.BooleanField()
 
 
 class ProfileUpdateSerializer(serializers.Serializer):
-    full_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    full_name = serializers.CharField()
+    phone = serializers.CharField()
+    district = serializers.CharField()
+    city = serializers.CharField()
+
+    def validate(self, attrs):
+        attrs["full_name"] = normalize_required_text(attrs.get("full_name"), "FULL_NAME_REQUIRED")
+        attrs["phone"] = normalize_ru_mobile_phone(attrs.get("phone"))
+        attrs["district"] = validate_sakha_district(attrs.get("district"))
+        attrs["city"] = normalize_required_text(attrs.get("city"), "CITY_REQUIRED")
+        return attrs
 
 
 class CartItemCreateSerializer(serializers.Serializer):

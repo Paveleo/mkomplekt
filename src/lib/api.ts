@@ -15,6 +15,37 @@ export function resolveApiUrl(path: string) {
   return `${apiBaseUrl}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function extractErrorDetail(payload: unknown): string | undefined {
+  if (!payload) {
+    return undefined;
+  }
+
+  if (typeof payload === 'string') {
+    return payload || undefined;
+  }
+
+  if (typeof payload !== 'object') {
+    return undefined;
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (typeof record.detail === 'string') {
+    return record.detail;
+  }
+
+  for (const value of Object.values(record)) {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (Array.isArray(value) && typeof value[0] === 'string') {
+      return value[0];
+    }
+  }
+
+  return undefined;
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers || {});
   const isFormData = init.body instanceof FormData;
@@ -39,18 +70,11 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     : await response.text();
 
   if (!response.ok) {
-    const error = new Error(
-      typeof payload === 'object' && payload && 'detail' in payload
-        ? String((payload as any).detail)
-        : typeof payload === 'string'
-          ? payload
-          : 'Request failed',
-    ) as ApiError;
+    const detail = extractErrorDetail(payload);
+    const error = new Error(detail || 'Request failed') as ApiError;
 
     error.status = response.status;
-    error.detail = typeof payload === 'object' && payload && 'detail' in payload
-      ? String((payload as any).detail)
-      : undefined;
+    error.detail = detail;
 
     throw error;
   }

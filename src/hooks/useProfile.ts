@@ -7,6 +7,8 @@ export type Profile = {
   email: string;
   full_name: string | null;
   phone: string | null;
+  district: string | null;
+  city: string | null;
   is_admin: boolean;
 };
 
@@ -25,7 +27,7 @@ export const useUpdateProfile = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payload: { full_name: string; phone: string }) => {
+    mutationFn: async (payload: { full_name: string; phone: string; district: string; city: string }) => {
       if (!user) {
         throw new Error('AUTH_REQUIRED');
       }

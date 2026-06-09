@@ -7,6 +7,8 @@ export type AuthUser = {
   email: string;
   full_name: string | null;
   phone: string | null;
+  district: string | null;
+  city: string | null;
   is_admin: boolean;
 };
 
@@ -16,7 +18,10 @@ type LoginPayload = {
 };
 
 type RegisterPayload = LoginPayload & {
-  full_name?: string;
+  full_name: string;
+  phone: string;
+  district: string;
+  city: string;
 };
 
 type AuthContextValue = {

@@ -122,8 +122,10 @@ def build_import_state(*, category_slugs: set[str] | None = None) -> ImportState
         "category_id",
         "sku",
         "price",
+        "size",
         "thickness",
         "color",
+        "unit",
         "material",
         "description",
         "is_published",
@@ -209,6 +211,10 @@ def serialize_product_card(request, product: Product) -> dict:
         "slug": product.slug,
         "title": product.title,
         "price": to_float(product.price),
+        "size": product.size,
+        "thickness": to_float(product.thickness),
+        "color": product.color,
+        "unit": product.unit,
         "images": [{"url": build_media_url(request, image.image_path)} for image in product.images.all()],
     }
 
@@ -222,8 +228,10 @@ def serialize_product(request, product: Product) -> dict:
         "category_id": str(product.category_id),
         "category_title": product.category.title,
         "price": to_float(product.price),
+        "size": product.size,
         "thickness": to_float(product.thickness),
         "color": product.color,
+        "unit": product.unit,
         "material": product.material,
         "description": product.description,
         "is_published": product.is_published,
@@ -489,6 +497,11 @@ def product_details_view(request, slug: str):
             "title": product.title,
             "description": product.description,
             "price": to_float(product.price),
+            "size": product.size,
+            "thickness": to_float(product.thickness),
+            "color": product.color,
+            "unit": product.unit,
+            "material": product.material,
             "product_images": [
                 {"url": build_media_url(request, image.image_path), "sort": image.sort}
                 for image in product.images.all()
@@ -1170,8 +1183,10 @@ def product_from_request(request, *, instance: Product | None = None) -> Product
     product.slug = make_unique_slug(Product, slug_source, instance_pk=product.pk)
     product.category = category
     product.price = price
+    product.size = str(data.get("size", "")).strip() or None
     product.thickness = thickness
     product.color = str(data.get("color", "")).strip() or None
+    product.unit = str(data.get("unit", "")).strip() or None
     product.material = str(data.get("material", "")).strip() or None
     product.description = str(data.get("description", "")).strip() or None
     product.is_published = bool_from_value(data.get("is_published"), default=True)
@@ -1246,8 +1261,10 @@ def upsert_product(
     sort: int,
     sku: str | None = None,
     price=None,
+    size: str | None = None,
     thickness=None,
     color: str | None = None,
+    unit: str | None = None,
     material: str | None = None,
     description: str | None = None,
     is_published: bool = True,
@@ -1265,8 +1282,10 @@ def upsert_product(
         next_values = {
             "sku": sku,
             "price": price,
+            "size": size,
             "thickness": thickness,
             "color": color,
+            "unit": unit,
             "material": material,
             "description": description,
             "is_published": is_published,
@@ -1292,8 +1311,10 @@ def upsert_product(
         slug=product_slug,
         category=category,
         price=price,
+        size=size,
         thickness=thickness,
         color=color,
+        unit=unit,
         material=material,
         description=description,
         is_published=is_published,
@@ -1423,8 +1444,10 @@ def import_flat_products(rows: list[dict[str, str]]) -> dict[str, int | str]:
                 sku=str(row.get("sku", "")).strip() or None,
                 category=category,
                 price=decimal_or_none(row.get("price")),
+                size=str(row.get("size", "")).strip() or None,
                 thickness=decimal_or_none(row.get("thickness")),
                 color=str(row.get("color", "")).strip() or None,
+                unit=str(row.get("unit", "")).strip() or None,
                 material=str(row.get("material", "")).strip() or None,
                 description=str(row.get("description", "")).strip() or None,
                 is_published=bool_from_value(row.get("is_published"), default=True),

@@ -121,6 +121,36 @@
   font: 400 clamp(16px, 1.6vw, 18px)/1.65 Helvetica, Arial, sans-serif;
 }
 
+.specs {
+  display: grid;
+  gap: 0;
+  margin: 4px 0 0;
+  border-top: 1px solid #e7e5e4;
+  border-bottom: 1px solid #e7e5e4;
+}
+
+.specRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.42fr) minmax(0, 1fr);
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0ede9;
+  font: 400 15px/1.45 Helvetica, Arial, sans-serif;
+}
+
+.specRow:last-child {
+  border-bottom: 0;
+}
+
+.specRow dt {
+  color: #6b7280;
+}
+
+.specRow dd {
+  margin: 0;
+  color: #111111;
+}
+
 .actions {
   margin-top: clamp(10px, 2vw, 20px);
   display: flex;

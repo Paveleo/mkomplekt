@@ -21,8 +21,10 @@ type AdminProduct = {
   category_title: string
   sort: number
   price?: number | null
+  size?: string | null
   thickness?: number | null
   color?: string | null
+  unit?: string | null
   material?: string | null
   description?: string | null
   images?: ProductImage[]
@@ -218,8 +220,10 @@ export default function ProductsPage() {
     formData.set('sku', product.sku || '')
     formData.set('category_id', product.category_id)
     formData.set('price', toFormValue(product.price))
+    formData.set('size', product.size || '')
     formData.set('thickness', toFormValue(product.thickness))
     formData.set('color', product.color || '')
+    formData.set('unit', product.unit || '')
     formData.set('material', product.material || '')
     formData.set('description', product.description || '')
     formData.set('is_published', product.is_published ? 'true' : 'false')
@@ -539,6 +543,24 @@ export default function ProductsPage() {
                           price: nextValue === '' ? null : Number(nextValue),
                         })
                       }}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Размер</span>
+                    <input
+                      className={styles.input}
+                      value={product.size || ''}
+                      onChange={(event) => updateSelectedRow(product.id, { size: event.target.value })}
+                    />
+                  </label>
+
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Ед. измерения</span>
+                    <input
+                      className={styles.input}
+                      value={product.unit || ''}
+                      onChange={(event) => updateSelectedRow(product.id, { unit: event.target.value })}
                     />
                   </label>
                 </div>

@@ -10,8 +10,10 @@ type FormValues = {
   sku?: string
   category_id: string
   price?: number | string
+  size?: string
   thickness?: number | string
   color?: string
+  unit?: string
   material?: string
   description?: string
   is_published?: boolean
@@ -34,8 +36,10 @@ type ProductResponse = {
   sku?: string | null
   category_id: string
   price?: number | null
+  size?: string | null
   thickness?: number | null
   color?: string | null
+  unit?: string | null
   material?: string | null
   description?: string | null
   is_published?: boolean
@@ -47,8 +51,10 @@ const defaultValues: FormValues = {
   sku: '',
   category_id: '',
   price: '',
+  size: '',
   thickness: '',
   color: '',
+  unit: '',
   material: '',
   description: '',
   is_published: true,
@@ -112,8 +118,10 @@ export default function ProductForm() {
         sku: product.sku || '',
         category_id: product.category_id,
         price: product.price ?? '',
+        size: product.size || '',
         thickness: product.thickness ?? '',
         color: product.color || '',
+        unit: product.unit || '',
         material: product.material || '',
         description: product.description || '',
         is_published: Boolean(product.is_published),
@@ -149,8 +157,10 @@ export default function ProductForm() {
   const title = watch('title') || ''
   const categoryId = watch('category_id') || ''
   const price = watch('price')
+  const size = watch('size') || ''
   const thickness = watch('thickness')
   const color = watch('color') || ''
+  const unit = watch('unit') || ''
   const material = watch('material') || ''
   const isPublished = Boolean(watch('is_published'))
   const isFormLocked = isLoadingProduct || isSubmitting
@@ -208,8 +218,10 @@ export default function ProductForm() {
       formData.set('sku', values.sku || '')
       formData.set('category_id', values.category_id)
       formData.set('price', values.price === '' || values.price === undefined ? '' : String(values.price))
+      formData.set('size', values.size || '')
       formData.set('thickness', values.thickness === '' || values.thickness === undefined ? '' : String(values.thickness))
       formData.set('color', values.color || '')
+      formData.set('unit', values.unit || '')
       formData.set('material', values.material || '')
       formData.set('description', values.description || '')
       formData.set('is_published', values.is_published ? 'true' : 'false')
@@ -340,6 +352,15 @@ export default function ProductForm() {
                 </label>
 
                 <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Размер</span>
+                  <input
+                    className={styles.input}
+                    placeholder="Например: 2800x600"
+                    {...register('size')}
+                  />
+                </label>
+
+                <label className={styles.field}>
                   <span className={styles.fieldLabel}>Толщина</span>
                   <input
                     className={styles.input}
@@ -356,6 +377,15 @@ export default function ProductForm() {
                     className={styles.input}
                     placeholder="Белый, графит, дуб"
                     {...register('color')}
+                  />
+                </label>
+
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Ед. измерения</span>
+                  <input
+                    className={styles.input}
+                    placeholder="шт, м, м2, пог. м"
+                    {...register('unit')}
                   />
                 </label>
               </div>

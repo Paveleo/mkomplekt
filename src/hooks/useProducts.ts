@@ -6,6 +6,10 @@ export type ProductCardItem = {
   slug: string
   title: string
   price?: number | null
+  size?: string | null
+  thickness?: number | null
+  color?: string | null
+  unit?: string | null
   images?: { url: string }[]
 }
 

@@ -13,6 +13,11 @@ type ProductDetails = {
   title: string;
   description?: string | null;
   price?: number | null;
+  size?: string | null;
+  thickness?: number | null;
+  color?: string | null;
+  unit?: string | null;
+  material?: string | null;
   product_images: { url: string; sort: number }[];
 };
 
@@ -65,6 +70,13 @@ export default function ProductPage() {
   const product = query.data;
   const images = product.product_images || [];
   const activeImage = images[activeImageIndex]?.url || images[0]?.url || null;
+  const specs = [
+    product.size ? { label: 'Размер', value: product.size } : null,
+    typeof product.thickness === 'number' ? { label: 'Толщина', value: `${product.thickness} мм` } : null,
+    product.color ? { label: 'Цвет', value: product.color } : null,
+    product.unit ? { label: 'Ед. измерения', value: product.unit } : null,
+    product.material ? { label: 'Материал', value: product.material } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
 
   const phone = '79141011645';
   const text = `Здравствуйте! Интересует товар: ${product.title}`;
@@ -155,6 +167,17 @@ export default function ProductPage() {
           <p className={styles.note}>
             Уточняйте наличие товара и финальную стоимость у менеджера перед оформлением заказа.
           </p>
+
+          {specs.length > 0 ? (
+            <dl className={styles.specs}>
+              {specs.map((spec) => (
+                <div className={styles.specRow} key={spec.label}>
+                  <dt>{spec.label}</dt>
+                  <dd>{spec.value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
 
           {product.description ? <p className={styles.description}>{product.description}</p> : null}
 

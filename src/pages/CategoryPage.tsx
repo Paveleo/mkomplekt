@@ -12,7 +12,7 @@ function buildCatalogPath(parts: string[]) {
 export default function CategoryPage() {
   const params = useParams<{ '*': string }>()
   const parts = (params['*'] || '').split('/').filter(Boolean)
-  const slug = parts.at(-1) || ''
+  const slug = parts[parts.length - 1] || ''
 
   if (!slug) {
     return <Navigate to="/catalog" replace />

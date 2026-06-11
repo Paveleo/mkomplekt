@@ -764,8 +764,17 @@ def admin_categories_view(request):
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated, IsAdminUserCookie])
 def admin_categories_options_view(request):
-    rows = Category.objects.all().order_by("title")
-    return Response([{"id": str(category.id), "title": category.title} for category in rows])
+    rows = Category.objects.all().order_by("parent_id", "sort", "title")
+    return Response(
+        [
+            {
+                "id": str(category.id),
+                "title": category.title,
+                "parent_id": str(category.parent_id) if category.parent_id else None,
+            }
+            for category in rows
+        ]
+    )
 
 
 @api_view(["PUT"])
@@ -1740,7 +1749,10 @@ def admin_products_view(request):
             queryset = queryset.filter(id__in=ProductImage.objects.values("product_id"))
         if search:
             queryset = queryset.filter(
-                build_text_match_query(search, ("title", "slug", "sku", "category__title"))
+                build_text_match_query(
+                    search,
+                    ("title", "slug", "sku", "category__title", "size", "color", "unit", "material"),
+                )
             )
         return Response([serialize_product(request, product) for product in queryset])
 

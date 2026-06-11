@@ -33,6 +33,7 @@ type AdminProduct = {
 type CategoryOption = {
   id: string
   title: string
+  parent_id?: string | null
 }
 
 type BulkImageMode = 'keep' | 'replace' | 'clear'
@@ -41,11 +42,69 @@ function toFormValue(value: string | number | null | undefined) {
   return value === null || value === undefined ? '' : String(value)
 }
 
+function categoryParentKey(parentId?: string | null) {
+  return parentId || '__root__'
+}
+
+function formatPrice(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return 'Цена не указана'
+  }
+
+  return `${value.toLocaleString('ru-RU')} ₽`
+}
+
+function CategoryTree({
+  activeCategoryId,
+  categoriesByParent,
+  level = 0,
+  parentId = null,
+  onSelect,
+}: {
+  activeCategoryId: string
+  categoriesByParent: Map<string, CategoryOption[]>
+  level?: number
+  parentId?: string | null
+  onSelect: (categoryId: string) => void
+}) {
+  const rows = categoriesByParent.get(categoryParentKey(parentId)) || []
+
+  if (!rows.length) {
+    return null
+  }
+
+  return (
+    <div className={styles.folderTreeLevel}>
+      {rows.map((category) => (
+        <div key={category.id}>
+          <button
+            type="button"
+            className={category.id === activeCategoryId ? styles.folderButtonActive : styles.folderButton}
+            style={{ paddingLeft: 14 + level * 16 }}
+            onClick={() => onSelect(category.id)}
+          >
+            <span className={styles.folderIcon}>▣</span>
+            <span>{category.title}</span>
+          </button>
+
+          <CategoryTree
+            activeCategoryId={activeCategoryId}
+            categoriesByParent={categoriesByParent}
+            level={level + 1}
+            parentId={category.id}
+            onSelect={onSelect}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function ProductsPage() {
   const qc = useQueryClient()
   const navigate = useNavigate()
 
-  const [catFilter, setCatFilter] = useState('')
+  const [activeCategoryId, setActiveCategoryId] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [imageFilter, setImageFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -62,12 +121,40 @@ export default function ProductsPage() {
     queryFn: async () => apiRequest<CategoryOption[]>('/api/admin/categories/options'),
   })
 
+  const categories = catsQ.data || []
+
+  const categoryMap = useMemo(() => {
+    return new Map(categories.map((category) => [category.id, category]))
+  }, [categories])
+
+  const categoriesByParent = useMemo(() => {
+    const next = new Map<string, CategoryOption[]>()
+    for (const category of categories) {
+      const key = categoryParentKey(category.parent_id)
+      next.set(key, [...(next.get(key) || []), category])
+    }
+    return next
+  }, [categories])
+
+  const activeCategory = activeCategoryId ? categoryMap.get(activeCategoryId) : null
+  const childCategories = categoriesByParent.get(categoryParentKey(activeCategoryId || null)) || []
+
+  const breadcrumbs = useMemo(() => {
+    const result: CategoryOption[] = []
+    let current: CategoryOption | undefined = activeCategory || undefined
+    while (current) {
+      result.unshift(current)
+      current = current.parent_id ? categoryMap.get(current.parent_id) : undefined
+    }
+    return result
+  }, [activeCategory, categoryMap])
+
   const q = useQuery({
-    queryKey: ['products-admin', catFilter, statusFilter, imageFilter, search],
+    queryKey: ['products-admin', activeCategoryId, statusFilter, imageFilter, search],
     queryFn: async () => {
       const params = new URLSearchParams()
-      if (catFilter) {
-        params.set('category_id', catFilter)
+      if (activeCategoryId) {
+        params.set('category_id', activeCategoryId)
       }
       if (statusFilter) {
         params.set('is_published', statusFilter)
@@ -103,30 +190,44 @@ export default function ProductsPage() {
     setBulkImageInputKey((current) => current + 1)
   }, [selectedIds])
 
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selectedIds.includes(row.id)),
+    [rows, selectedIds],
+  )
+
+  const publishedCount = useMemo(
+    () => rows.filter((row) => row.is_published).length,
+    [rows],
+  )
+
+  const selectedImagesCount = useMemo(
+    () => selectedRows.reduce((total, row) => total + (row.images?.length || 0), 0),
+    [selectedRows],
+  )
+
+  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))
+  const isReorderLocked =
+    !activeCategoryId ||
+    search.trim().length > 0 ||
+    statusFilter.length > 0 ||
+    imageFilter.length > 0 ||
+    selectedIds.length > 0
+
   const move = (index: number, delta: number) => {
     const targetIndex = index + delta
     if (targetIndex < 0 || targetIndex >= rows.length) {
-      return
-    }
-    if (!catFilter && rows[targetIndex].category_id !== rows[index].category_id) {
       return
     }
     setRows(arrayMove(rows, index, targetIndex))
   }
 
   const saveOrder = async () => {
-    const pairs: Array<{ id: string; sort: number }> = []
-
-    if (catFilter) {
-      rows.forEach((row, index) => pairs.push({ id: row.id, sort: index }))
-    } else {
-      const counters = new Map<string, number>()
-      for (const row of rows) {
-        const next = counters.get(row.category_id) ?? 0
-        pairs.push({ id: row.id, sort: next })
-        counters.set(row.category_id, next + 1)
-      }
+    if (!activeCategoryId) {
+      alert('Выберите папку категории, чтобы сохранить порядок товаров внутри нее.')
+      return
     }
+
+    const pairs = rows.map((row, index) => ({ id: row.id, sort: index }))
 
     try {
       await apiRequest('/api/admin/products/order', {
@@ -156,28 +257,6 @@ export default function ProductsPage() {
       alert(error.message || 'Не удалось удалить товар')
     }
   }
-
-  const selectedRows = useMemo(
-    () => rows.filter((row) => selectedIds.includes(row.id)),
-    [rows, selectedIds],
-  )
-
-  const publishedCount = useMemo(
-    () => rows.filter((row) => row.is_published).length,
-    [rows],
-  )
-
-  const selectedImagesCount = useMemo(
-    () => selectedRows.reduce((total, row) => total + (row.images?.length || 0), 0),
-    [selectedRows],
-  )
-
-  const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIds.includes(row.id))
-  const isReorderLocked =
-    search.trim().length > 0 ||
-    statusFilter.length > 0 ||
-    imageFilter.length > 0 ||
-    selectedIds.length > 0
 
   const toggleSelected = (productId: string) => {
     setSelectedIds((current) =>
@@ -260,6 +339,7 @@ export default function ProductsPage() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['products-admin'] }),
         qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['product'] }),
       ])
 
       if (bulkImageMode !== 'keep') {
@@ -302,10 +382,10 @@ export default function ProductsPage() {
       <div className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Каталог</p>
-          <h1 className={styles.title}>Товары</h1>
+          <h1 className={styles.title}>Папки и товары</h1>
           <p className={styles.subtitle}>
-            Фильтруйте каталог по категории, статусу и наличию фото, ищите по совпадениям
-            в названии, slug, SKU и названии раздела.
+            Выберите папку категории слева, откройте подпапку или товар справа. Поля размера, толщины, цвета,
+            единицы измерения, артикула и цены можно менять у выбранных товаров массово.
           </p>
         </div>
 
@@ -317,328 +397,360 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <div className={styles.cardGrid}>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Найдено</div>
-          <div className={styles.statValue}>{rows.length}</div>
-          <div className={styles.statMeta}>Товары в текущей выборке.</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Опубликованы</div>
-          <div className={styles.statValue}>{publishedCount}</div>
-          <div className={styles.statMeta}>Видны посетителям сайта.</div>
-        </div>
-        <div className={styles.statCard}>
-          <div className={styles.statLabel}>Скрыты</div>
-          <div className={styles.statValue}>{rows.length - publishedCount}</div>
-          <div className={styles.statMeta}>Черновики и выключенные карточки.</div>
-        </div>
-      </div>
-
-      <div className={styles.card}>
-        <div className={styles.toolbar}>
-          <div className={styles.toolbarGroup}>
-            <input
-              className={styles.input}
-              placeholder="Поиск: название, slug, SKU, категория"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-            <select
-              className={styles.select}
-              value={catFilter}
-              onChange={(event) => setCatFilter(event.target.value)}
-            >
-              <option value="">Все категории</option>
-              {catsQ.data?.map((category) => (
-                <option value={category.id} key={category.id}>
-                  {category.title}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.select}
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="">Любой статус</option>
-              <option value="true">Опубликованные</option>
-              <option value="false">Скрытые</option>
-            </select>
-            <select
-              className={styles.select}
-              value={imageFilter}
-              onChange={(event) => setImageFilter(event.target.value)}
-            >
-              <option value="">Любые изображения</option>
-              <option value="false">Без изображения</option>
-              <option value="true">С изображением</option>
-            </select>
+      <div className={styles.catalogExplorer}>
+        <aside className={styles.folderSidebar}>
+          <div className={styles.folderSidebarHeader}>
+            <h2 className={styles.cardTitle}>Папки</h2>
+            <Link to="/admin/categories" className={styles.buttonGhost}>Редактировать</Link>
           </div>
 
-          <div className={styles.toolbarGroup}>
-            <Link to="/admin/import" className={styles.buttonGhost}>Импорт Excel</Link>
-          </div>
-        </div>
-      </div>
+          <button
+            type="button"
+            className={!activeCategoryId ? styles.folderButtonActive : styles.folderButton}
+            onClick={() => setActiveCategoryId('')}
+          >
+            <span className={styles.folderIcon}>▤</span>
+            <span>Весь каталог</span>
+          </button>
 
-      {selectedRows.length > 0 ? (
-        <div className={styles.card}>
-          <div className={styles.cardHeader}>
-            <div>
-              <h2 className={styles.cardTitle}>Выбрано товаров: {selectedRows.length}</h2>
-              <p className={styles.cardText}>
-                Меняйте артикулы, цены и фотографии сразу у всей выборки. Одна пачка файлов
-                будет применена ко всем выбранным товарам.
-              </p>
+          {catsQ.isLoading ? <div className={styles.inlineNotice}>Загружаем папки...</div> : null}
+          {catsQ.isError ? <div className={styles.errorNotice}>Не удалось загрузить категории.</div> : null}
+
+          <CategoryTree
+            activeCategoryId={activeCategoryId}
+            categoriesByParent={categoriesByParent}
+            onSelect={setActiveCategoryId}
+          />
+        </aside>
+
+        <main className={styles.folderMain}>
+          <div className={styles.card}>
+            <div className={styles.folderTopbar}>
+              <div>
+                <div className={styles.breadcrumbs}>
+                  <button type="button" onClick={() => setActiveCategoryId('')}>Каталог</button>
+                  {breadcrumbs.map((category) => (
+                    <button type="button" key={category.id} onClick={() => setActiveCategoryId(category.id)}>
+                      / {category.title}
+                    </button>
+                  ))}
+                </div>
+                <h2 className={styles.cardTitle}>{activeCategory?.title || 'Весь каталог'}</h2>
+                <p className={styles.cardText}>
+                  {activeCategoryId
+                    ? `В папке товаров: ${rows.length}. Подпапок: ${childCategories.length}.`
+                    : `Всего в текущей выборке товаров: ${rows.length}. Выберите папку, чтобы редактировать порядок.`}
+                </p>
+              </div>
+
+              <label className={styles.selectAllBox}>
+                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} />
+                <span>Выбрать видимые</span>
+              </label>
             </div>
 
-            <div className={styles.actions}>
-              {selectedRows.length === 1 ? (
-                <button
-                  type="button"
-                  className={styles.buttonSecondary}
-                  onClick={() => navigate(`/admin/products/${selectedRows[0].id}`)}
-                >
-                  Открыть карточку
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={styles.buttonPrimary}
-                onClick={saveSelected}
-                disabled={isBulkSaving || isBulkDeleting}
-              >
-                {isBulkSaving ? 'Сохраняю...' : 'Сохранить выбранные'}
-              </button>
-              <button
-                type="button"
-                className={styles.buttonDanger}
-                onClick={deleteSelected}
-                disabled={isBulkSaving || isBulkDeleting}
-              >
-                {isBulkDeleting ? 'Удаляю...' : 'Удалить выбранные'}
-              </button>
-              <button
-                type="button"
-                className={styles.buttonGhost}
-                onClick={() => setSelectedIds([])}
-                disabled={isBulkSaving || isBulkDeleting}
-              >
-                Снять выбор
-              </button>
-            </div>
-          </div>
-
-          <div className={styles.formSection}>
-            <h3 className={styles.sectionTitle}>Массовые фото</h3>
-            <p className={styles.sectionDescription}>
-              Сейчас у выбранных товаров фотографий: <strong>{selectedImagesCount}</strong>.
-              Можно оставить фото как есть, заменить их одинаковым набором изображений или очистить все.
-            </p>
-
-            <div className={styles.formGrid}>
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Действие с фото</span>
+            <div className={styles.toolbar}>
+              <div className={styles.toolbarGroup}>
+                <input
+                  className={styles.input}
+                  placeholder="Поиск: название, SKU, цвет, размер"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
                 <select
                   className={styles.select}
-                  value={bulkImageMode}
-                  onChange={(event) => setBulkImageMode(event.target.value as BulkImageMode)}
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
                 >
-                  <option value="keep">Фото не менять</option>
-                  <option value="replace">Заменить фото у выбранных</option>
-                  <option value="clear">Удалить все фото у выбранных</option>
+                  <option value="">Любой статус</option>
+                  <option value="true">Опубликованные</option>
+                  <option value="false">Скрытые</option>
                 </select>
-                <span className={styles.fieldHint}>
-                  Режим применяется сразу ко всем выбранным товарам.
-                </span>
-              </label>
+                <select
+                  className={styles.select}
+                  value={imageFilter}
+                  onChange={(event) => setImageFilter(event.target.value)}
+                >
+                  <option value="">Любые изображения</option>
+                  <option value="false">Без изображения</option>
+                  <option value="true">С изображением</option>
+                </select>
+              </div>
 
-              {bulkImageMode === 'replace' ? (
-                <div className={styles.dropzone}>
-                  <label className={styles.fieldWide}>
-                    <span className={styles.fieldLabel}>Новые фото для всех выбранных товаров</span>
-                    <input
-                      key={bulkImageInputKey}
-                      className={styles.input}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(event) => handleBulkFilesSelected(event.target.files)}
-                    />
-                    <span className={styles.fieldHint}>
-                      Выбранные файлы заменят текущую галерею у каждого товара из выборки.
-                    </span>
-                  </label>
-
-                  {bulkImageFiles.length > 0 ? (
-                    <>
-                      <div className={styles.inlineNotice}>
-                        Подготовлено файлов: <strong>{bulkImageFiles.length}</strong>
-                      </div>
-                      <div className={styles.previewGrid}>
-                        {bulkImageFiles.map((file) => (
-                          <div key={`${file.name}-${file.lastModified}`} className={styles.previewCard}>
-                            <div className={styles.previewInfo}>
-                              <strong>{file.name}</strong>
-                              <br />
-                              {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className={styles.actions}>
-                        <button
-                          type="button"
-                          className={styles.buttonGhost}
-                          onClick={clearBulkFiles}
-                          disabled={isBulkSaving || isBulkDeleting}
-                        >
-                          Очистить выбранные файлы
-                        </button>
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {bulkImageMode === 'clear' ? (
-                <div className={styles.inlineNotice}>
-                  При сохранении у всех выбранных товаров будут удалены текущие изображения.
-                </div>
-              ) : null}
+              <div className={styles.toolbarGroup}>
+                <Link to="/admin/import" className={styles.buttonGhost}>Импорт Excel</Link>
+              </div>
             </div>
           </div>
 
-          <div className={styles.selectionList}>
-            {selectedRows.map((product) => (
-              <div key={product.id} className={styles.selectionRow}>
-                <div className={styles.selectionMeta}>
-                  <div className={styles.tablePrimary}>{product.title}</div>
-                  <div className={styles.tableSecondary}>
-                    {product.category_title} • {product.images?.length ? `Фото: ${product.images.length}` : 'Без фото'}
-                  </div>
+          {childCategories.length > 0 ? (
+            <div className={styles.folderGrid}>
+              {childCategories.map((category) => (
+                <button
+                  type="button"
+                  className={styles.folderCard}
+                  key={category.id}
+                  onClick={() => setActiveCategoryId(category.id)}
+                >
+                  <span className={styles.folderCardIcon}>▣</span>
+                  <span className={styles.folderCardTitle}>{category.title}</span>
+                  <span className={styles.folderCardMeta}>
+                    Подпапок: {(categoriesByParent.get(category.id) || []).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className={styles.cardGrid}>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Найдено</div>
+              <div className={styles.statValue}>{rows.length}</div>
+              <div className={styles.statMeta}>Товары в текущей папке или выборке.</div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Опубликованы</div>
+              <div className={styles.statValue}>{publishedCount}</div>
+              <div className={styles.statMeta}>Видны посетителям сайта.</div>
+            </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Скрыты</div>
+              <div className={styles.statValue}>{rows.length - publishedCount}</div>
+              <div className={styles.statMeta}>Черновики и выключенные карточки.</div>
+            </div>
+          </div>
+
+          {selectedRows.length > 0 ? (
+            <div className={styles.card}>
+              <div className={styles.cardHeader}>
+                <div>
+                  <h2 className={styles.cardTitle}>Выбрано товаров: {selectedRows.length}</h2>
+                  <p className={styles.cardText}>
+                    Быстро поменяйте характеристики, артикулы, цены или фотографии у выбранных товаров.
+                  </p>
                 </div>
 
-                <div className={styles.selectionFields}>
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Артикул</span>
-                    <input
-                      className={styles.input}
-                      value={product.sku || ''}
-                      onChange={(event) => updateSelectedRow(product.id, { sku: event.target.value })}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Цена</span>
-                    <input
-                      className={styles.input}
-                      type="number"
-                      step="0.01"
-                      value={product.price ?? ''}
-                      onChange={(event) => {
-                        const nextValue = event.target.value
-                        updateSelectedRow(product.id, {
-                          price: nextValue === '' ? null : Number(nextValue),
-                        })
-                      }}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Размер</span>
-                    <input
-                      className={styles.input}
-                      value={product.size || ''}
-                      onChange={(event) => updateSelectedRow(product.id, { size: event.target.value })}
-                    />
-                  </label>
-
-                  <label className={styles.field}>
-                    <span className={styles.fieldLabel}>Ед. измерения</span>
-                    <input
-                      className={styles.input}
-                      value={product.unit || ''}
-                      onChange={(event) => updateSelectedRow(product.id, { unit: event.target.value })}
-                    />
-                  </label>
-                </div>
-
-                <div className={styles.tableActions}>
+                <div className={styles.actions}>
                   <button
                     type="button"
-                    className={styles.buttonSecondary}
-                    onClick={() => navigate(`/admin/products/${product.id}`)}
+                    className={styles.buttonPrimary}
+                    onClick={saveSelected}
+                    disabled={isBulkSaving || isBulkDeleting}
                   >
-                    Карточка
+                    {isBulkSaving ? 'Сохраняю...' : 'Сохранить выбранные'}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.buttonDanger}
+                    onClick={deleteSelected}
+                    disabled={isBulkSaving || isBulkDeleting}
+                  >
+                    {isBulkDeleting ? 'Удаляю...' : 'Удалить выбранные'}
                   </button>
                   <button
                     type="button"
                     className={styles.buttonGhost}
-                    onClick={() => toggleSelected(product.id)}
+                    onClick={() => setSelectedIds([])}
+                    disabled={isBulkSaving || isBulkDeleting}
                   >
-                    Убрать
+                    Снять выбор
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
-      {q.isLoading ? <div className={styles.inlineNotice}>Загрузка товаров...</div> : null}
-      {q.isError ? <div className={styles.errorNotice}>Не удалось загрузить список товаров.</div> : null}
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Массовые фото</h3>
+                <p className={styles.sectionDescription}>
+                  Сейчас у выбранных товаров фотографий: <strong>{selectedImagesCount}</strong>.
+                </p>
 
-      {!q.isLoading && !q.isError && rows.length === 0 ? (
-        <div className={styles.emptyState}>По текущему фильтру товаров не найдено.</div>
-      ) : null}
+                <div className={styles.formGrid}>
+                  <label className={styles.field}>
+                    <span className={styles.fieldLabel}>Действие с фото</span>
+                    <select
+                      className={styles.select}
+                      value={bulkImageMode}
+                      onChange={(event) => setBulkImageMode(event.target.value as BulkImageMode)}
+                    >
+                      <option value="keep">Фото не менять</option>
+                      <option value="replace">Заменить фото у выбранных</option>
+                      <option value="clear">Удалить все фото у выбранных</option>
+                    </select>
+                  </label>
 
-      {!q.isLoading && !q.isError && rows.length > 0 ? (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th className={styles.checkboxCell}>
-                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible} />
-                </th>
-                <th>#</th>
-                <th>Товар</th>
-                <th>Категория</th>
-                <th>Статус</th>
-                <th>Порядок</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((product, index) => (
-                <tr key={product.id}>
-                  <td className={styles.checkboxCell}>
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.includes(product.id)}
-                      onChange={() => toggleSelected(product.id)}
-                    />
-                  </td>
-                  <td>{index + 1}</td>
-                  <td>
-                    <div className={styles.tableTitle}>
-                      <span className={styles.tablePrimary}>{product.title}</span>
-                      <span className={styles.tableSecondary}>
-                        /{product.slug}
-                        {product.sku ? ` • SKU: ${product.sku}` : ''}
-                        {' • '}
-                        {product.images?.length ? `Фото: ${product.images.length}` : 'Без фото'}
+                  {bulkImageMode === 'replace' ? (
+                    <label className={styles.fieldWide}>
+                      <span className={styles.fieldLabel}>Новые фото</span>
+                      <input
+                        key={bulkImageInputKey}
+                        className={styles.input}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(event) => handleBulkFilesSelected(event.target.files)}
+                      />
+                      <span className={styles.fieldHint}>
+                        Файлы заменят текущую галерею у каждого выбранного товара.
                       </span>
+                    </label>
+                  ) : null}
+                </div>
+
+                {bulkImageFiles.length > 0 ? (
+                  <div className={styles.inlineNotice}>
+                    Подготовлено файлов: <strong>{bulkImageFiles.length}</strong>
+                    <button type="button" className={styles.buttonGhost} onClick={clearBulkFiles}>
+                      Очистить
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className={styles.selectionList}>
+                {selectedRows.map((product) => (
+                  <div key={product.id} className={styles.selectionRow}>
+                    <div className={styles.selectionMeta}>
+                      <div className={styles.tablePrimary}>{product.title}</div>
+                      <div className={styles.tableSecondary}>
+                        {product.category_title} • {product.images?.length ? `Фото: ${product.images.length}` : 'Без фото'}
+                      </div>
                     </div>
-                  </td>
-                  <td>{product.category_title || 'Без категории'}</td>
-                  <td>
+
+                    <div className={styles.selectionFieldsWide}>
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Артикул</span>
+                        <input
+                          className={styles.input}
+                          value={product.sku || ''}
+                          onChange={(event) => updateSelectedRow(product.id, { sku: event.target.value })}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Цена</span>
+                        <input
+                          className={styles.input}
+                          type="number"
+                          step="0.01"
+                          value={product.price ?? ''}
+                          onChange={(event) => {
+                            const nextValue = event.target.value
+                            updateSelectedRow(product.id, { price: nextValue === '' ? null : Number(nextValue) })
+                          }}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Размер</span>
+                        <input
+                          className={styles.input}
+                          value={product.size || ''}
+                          onChange={(event) => updateSelectedRow(product.id, { size: event.target.value })}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Толщина</span>
+                        <input
+                          className={styles.input}
+                          type="number"
+                          step="0.1"
+                          value={product.thickness ?? ''}
+                          onChange={(event) => {
+                            const nextValue = event.target.value
+                            updateSelectedRow(product.id, { thickness: nextValue === '' ? null : Number(nextValue) })
+                          }}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Цвет</span>
+                        <input
+                          className={styles.input}
+                          value={product.color || ''}
+                          onChange={(event) => updateSelectedRow(product.id, { color: event.target.value })}
+                        />
+                      </label>
+
+                      <label className={styles.field}>
+                        <span className={styles.fieldLabel}>Ед. измерения</span>
+                        <input
+                          className={styles.input}
+                          value={product.unit || ''}
+                          onChange={(event) => updateSelectedRow(product.id, { unit: event.target.value })}
+                        />
+                      </label>
+                    </div>
+
+                    <div className={styles.tableActions}>
+                      <button
+                        type="button"
+                        className={styles.buttonSecondary}
+                        onClick={() => navigate(`/admin/products/${product.id}`)}
+                      >
+                        Карточка
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.buttonGhost}
+                        onClick={() => toggleSelected(product.id)}
+                      >
+                        Убрать
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {q.isLoading ? <div className={styles.inlineNotice}>Загрузка товаров...</div> : null}
+          {q.isError ? <div className={styles.errorNotice}>Не удалось загрузить список товаров.</div> : null}
+
+          {!q.isLoading && !q.isError && rows.length === 0 ? (
+            <div className={styles.emptyState}>В этой папке или выборке товаров не найдено.</div>
+          ) : null}
+
+          {!q.isLoading && !q.isError && rows.length > 0 ? (
+            <div className={styles.productGrid}>
+              {rows.map((product, index) => (
+                <article key={product.id} className={styles.productAdminCard}>
+                  <div className={styles.productCardHeader}>
+                    <label className={styles.selectAllBox}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(product.id)}
+                        onChange={() => toggleSelected(product.id)}
+                      />
+                      <span>Выбрать</span>
+                    </label>
                     <span className={product.is_published ? styles.statusCompleted : styles.statusCancelled}>
                       {product.is_published ? 'Опубликован' : 'Скрыт'}
                     </span>
-                  </td>
-                  <td>
+                  </div>
+
+                  <div className={styles.productThumb}>
+                    {product.images?.[0]?.url ? (
+                      <img src={product.images[0].url} alt={product.title} />
+                    ) : (
+                      <span>Без фото</span>
+                    )}
+                  </div>
+
+                  <div className={styles.productCardBody}>
+                    <h3>{product.title}</h3>
+                    <p>{product.category_title}</p>
+                    <div className={styles.productSpecs}>
+                      <span>{formatPrice(product.price)}</span>
+                      {product.sku ? <span>SKU: {product.sku}</span> : null}
+                      {product.size ? <span>Размер: {product.size}</span> : null}
+                      {product.thickness ? <span>Толщина: {product.thickness} мм</span> : null}
+                      {product.color ? <span>Цвет: {product.color}</span> : null}
+                      {product.unit ? <span>Ед.: {product.unit}</span> : null}
+                    </div>
+                  </div>
+
+                  <div className={styles.productCardActions}>
                     <div className={styles.toolbarGroup}>
                       <button
                         className={styles.iconButton}
@@ -655,8 +767,7 @@ export default function ProductsPage() {
                         ↓
                       </button>
                     </div>
-                  </td>
-                  <td>
+
                     <div className={styles.tableActions}>
                       <Link to={`/admin/products/${product.id}`} className={styles.buttonSecondary}>
                         Редактировать
@@ -665,20 +776,19 @@ export default function ProductsPage() {
                         Удалить
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </div>
+                </article>
               ))}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+            </div>
+          ) : null}
 
-      {isReorderLocked ? (
-        <div className={styles.inlineNotice}>
-          Перестановка временно отключена, пока включен поиск, фильтр или выбор товаров.
-          Очистите их, чтобы менять порядок товаров.
-        </div>
-      ) : null}
+          {isReorderLocked ? (
+            <div className={styles.inlineNotice}>
+              Чтобы менять порядок, выберите конкретную папку категории и очистите поиск, фильтры и выбор товаров.
+            </div>
+          ) : null}
+        </main>
+      </div>
     </div>
   )
 }

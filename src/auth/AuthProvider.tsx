@@ -50,7 +50,7 @@ function installLocationChangeEvents() {
 
   const wrapHistoryMethod = (method: 'pushState' | 'replaceState') => {
     const original = window.history[method];
-    window.history[method] = function patchedHistoryState(...args) {
+    window.history[method] = function patchedHistoryState(this: History, ...args) {
       const result = original.apply(this, args);
       window.dispatchEvent(new Event(AUTH_LOCATION_EVENT));
       return result;

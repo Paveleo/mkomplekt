@@ -662,6 +662,12 @@
   gap: 12px;
 }
 
+.selectionFieldsWide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .iconButton {
   min-width: 40px;
   min-height: 40px;
@@ -670,6 +676,218 @@
   background: rgba(255, 255, 255, 0.84);
   font: inherit;
   cursor: pointer;
+}
+
+.catalogExplorer {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.folderSidebar,
+.folderMain {
+  display: grid;
+  gap: 16px;
+}
+
+.folderSidebar {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 40px rgba(67, 49, 34, 0.08);
+}
+
+.folderSidebarHeader,
+.folderTopbar,
+.productCardHeader,
+.productCardActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.folderTreeLevel {
+  display: grid;
+  gap: 4px;
+}
+
+.folderButton,
+.folderButtonActive {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--admin-text);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.folderButton:hover {
+  border-color: var(--admin-border);
+  background: rgba(139, 94, 60, 0.06);
+}
+
+.folderButtonActive {
+  border-color: rgba(139, 94, 60, 0.24);
+  background: rgba(139, 94, 60, 0.12);
+  color: var(--admin-accent-dark);
+}
+
+.folderIcon,
+.folderCardIcon {
+  color: var(--admin-accent-dark);
+  font-size: 16px;
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.breadcrumbs button {
+  border: 0;
+  background: transparent;
+  color: var(--admin-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.breadcrumbs button:hover {
+  color: var(--admin-accent-dark);
+}
+
+.selectAllBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-weight: 700;
+}
+
+.folderGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.folderCard {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 30px rgba(67, 49, 34, 0.06);
+  color: var(--admin-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.folderCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 94, 60, 0.28);
+  box-shadow: 0 24px 38px rgba(67, 49, 34, 0.1);
+}
+
+.folderCardTitle {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.folderCardMeta {
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.productAdminCard {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 34px rgba(67, 49, 34, 0.07);
+}
+
+.productThumb {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(139, 94, 60, 0.08), rgba(255, 255, 255, 0.5)),
+    #f4eee7;
+  color: var(--admin-muted);
+  font-weight: 800;
+}
+
+.productThumb img {
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.productCardBody {
+  display: grid;
+  gap: 8px;
+}
+
+.productCardBody h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.productCardBody p {
+  margin: 0;
+  color: var(--admin-muted);
+}
+
+.productSpecs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.productSpecs span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(139, 94, 60, 0.08);
+  color: var(--admin-accent-dark);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .inlineNotice,
@@ -739,6 +957,15 @@
     grid-template-columns: 1fr;
   }
 
+  .catalogExplorer {
+    grid-template-columns: 1fr;
+  }
+
+  .folderSidebar {
+    position: static;
+    max-height: none;
+  }
+
   .summaryCard {
     position: static;
   }
@@ -762,8 +989,15 @@
   }
 
   .selectionRow,
-  .selectionFields {
+  .selectionFields,
+  .selectionFieldsWide {
     grid-template-columns: 1fr;
+  }
+
+  .folderTopbar,
+  .productCardHeader,
+  .productCardActions {
+    display: grid;
   }
 
   .buttonPrimary,

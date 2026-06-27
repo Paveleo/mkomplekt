@@ -96,6 +96,13 @@ USE_X_FORWARDED_HOST = env_bool("USE_X_FORWARDED_HOST", True)
 MEDIA_ROOT = resolve_path(env("MEDIA_ROOT", "media") or "media")
 MEDIA_URL = (env("MEDIA_URL", "/media") or "/media").rstrip("/") + "/"
 
+INSTAGRAM_ACCESS_TOKEN = env("INSTAGRAM_ACCESS_TOKEN", "") or ""
+INSTAGRAM_USER_ID = env("INSTAGRAM_USER_ID", "me") or "me"
+INSTAGRAM_PROFILE_URL = env("INSTAGRAM_PROFILE_URL", "https://www.instagram.com/") or "https://www.instagram.com/"
+INSTAGRAM_API_VERSION = env("INSTAGRAM_API_VERSION", "v23.0") or "v23.0"
+INSTAGRAM_WORKS_LIMIT = env_int("INSTAGRAM_WORKS_LIMIT", 12)
+INSTAGRAM_WORKS_CACHE_SECONDS = env_int("INSTAGRAM_WORKS_CACHE_SECONDS", 900)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

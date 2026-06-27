@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import html
+import logging
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Case, IntegerField, Prefetch, Q, When
 from django.shortcuts import get_object_or_404
@@ -21,7 +26,7 @@ from .import_sources import (
     search_category_image_candidates,
     search_product_image_candidates,
 )
-from .models import Cart, CartItem, Category, ContactRequest, Order, OrderItem, Product, ProductImage, Review, User
+from .models import Cart, CartItem, Category, ContactRequest, Order, OrderItem, Product, ProductImage, Review, User, Work
 from .permissions import IsAdminUserCookie
 from .serializers import (
     CartItemCreateSerializer,
@@ -30,6 +35,7 @@ from .serializers import (
     ContactRequestCreateSerializer,
     ContactRequestStatusSerializer,
     CreateOrderSerializer,
+    InstagramWorkImportSerializer,
     LoginSerializer,
     MediaApplySerializer,
     MediaAutoparseSerializer,
@@ -40,6 +46,7 @@ from .serializers import (
     ReviewPayloadSerializer,
     SortSerializer,
     TwoGisReviewImportSerializer,
+    WorkPayloadSerializer,
 )
 from .utils import (
     CATEGORY_IMAGE_HEADERS,
@@ -73,6 +80,13 @@ from .utils import (
 
 ORDER_STATUSES = {"new", "processing", "completed", "cancelled"}
 CONTACT_REQUEST_STATUSES = {"new", "in_progress", "done"}
+logger = logging.getLogger(__name__)
+INSTAGRAM_IMAGE_RE = re.compile(r'"(?:display_url|thumbnail_src|media_url)"\s*:\s*"([^"]+)"')
+INSTAGRAM_SHORTCODE_RE = re.compile(r'"shortcode"\s*:\s*"([^"]+)"')
+META_IMAGE_RE = re.compile(r'<meta\s+(?:property|name)=["\']og:image["\']\s+content=["\']([^"\']+)["\']', re.I)
+META_DESCRIPTION_RE = re.compile(r'<meta\s+(?:property|name)=["\']og:description["\']\s+content=["\']([^"\']*)["\']', re.I)
+TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+REMOTE_IMAGE_URL_RE = re.compile(r'https?:\\?/\\?/[^"\'<>\s]+?\.(?:avif|gif|jpe?g|png|webp)(?:\?[^"\'<>\s]*)?', re.I)
 
 
 @dataclass
@@ -320,6 +334,164 @@ def serialize_review(request, review: Review, *, admin: bool = False) -> dict:
     return payload
 
 
+def serialize_work(request, work: Work, *, admin: bool = False) -> dict:
+    payload = {
+        "id": str(work.id),
+        "title": work.title,
+        "caption": work.caption or "",
+        "image_url": build_media_url(request, work.image_url),
+        "source_url": work.source_url or "",
+        "is_published": work.is_published,
+        "sort": work.sort,
+        "created_at": work.created_at.isoformat(),
+        "updated_at": work.updated_at.isoformat(),
+    }
+    if admin:
+        payload["raw_image_url"] = work.image_url
+    return payload
+
+
+def clean_remote_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return html.unescape(value).replace("\\u0026", "&").replace("\\/", "/").strip()
+
+
+def validate_instagram_url(value: str) -> str:
+    parsed = urlparse(value.strip())
+    host = parsed.netloc.lower()
+    if parsed.scheme not in {"http", "https"} or not host:
+        raise ValueError("INSTAGRAM_URL_REQUIRED")
+    if host not in {"instagram.com", "www.instagram.com"}:
+        raise ValueError("ONLY_INSTAGRAM_URL_ALLOWED")
+    return value.strip()
+
+
+def short_work_title(caption: str, fallback: str = "Работа из Instagram") -> str:
+    text = " ".join((caption or "").split())
+    if not text:
+        return fallback
+    return text[:90].rstrip(" .,;:-") or fallback
+
+
+def is_allowed_instagram_image_url(value: str) -> bool:
+    parsed = urlparse(value)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    if not host:
+        return False
+    if host == "static.cdninstagram.com":
+        return False
+    if "rsrc.php" in path:
+        return False
+    return host.endswith("cdninstagram.com") or "fbcdn.net" in host
+
+
+def extract_instagram_work_candidates(source_url: str, *, limit: int) -> list[dict]:
+    normalized_url = validate_instagram_url(source_url)
+    page_html = fetch_url_text(normalized_url, timeout=25)
+    candidates: list[dict] = []
+    seen_images: set[str] = set()
+
+    description_match = META_DESCRIPTION_RE.search(page_html)
+    description = clean_remote_text(description_match.group(1) if description_match else "")
+
+    meta_image_match = META_IMAGE_RE.search(page_html)
+    if meta_image_match:
+        image_url = clean_remote_text(meta_image_match.group(1))
+        if image_url and is_allowed_instagram_image_url(image_url) and image_url not in seen_images:
+            seen_images.add(image_url)
+            candidates.append(
+                {
+                    "title": short_work_title(description),
+                    "caption": description,
+                    "image_url": image_url,
+                    "source_url": normalized_url,
+                }
+            )
+
+    shortcodes = [clean_remote_text(value) for value in INSTAGRAM_SHORTCODE_RE.findall(page_html)]
+    image_urls = [clean_remote_text(value) for value in INSTAGRAM_IMAGE_RE.findall(page_html)]
+    for index, image_url in enumerate(image_urls):
+        if not image_url.startswith("http") or not is_allowed_instagram_image_url(image_url) or image_url in seen_images:
+            continue
+        seen_images.add(image_url)
+        shortcode = shortcodes[index] if index < len(shortcodes) else ""
+        permalink = f"https://www.instagram.com/p/{shortcode}/" if shortcode else normalized_url
+        candidates.append(
+            {
+                "title": short_work_title(description),
+                "caption": description,
+                "image_url": image_url,
+                "source_url": permalink,
+            }
+        )
+        if len(candidates) >= limit:
+            break
+
+    if len(candidates) < limit:
+        for image_url in unique_media_references(REMOTE_IMAGE_URL_RE.findall(page_html)):
+            image_url = clean_remote_text(image_url)
+            if not image_url.startswith("http") or not is_allowed_instagram_image_url(image_url) or image_url in seen_images:
+                continue
+            seen_images.add(image_url)
+            candidates.append(
+                {
+                    "title": short_work_title(description),
+                    "caption": description,
+                    "image_url": image_url,
+                    "source_url": normalized_url,
+                }
+            )
+            if len(candidates) >= limit:
+                break
+
+    if not candidates:
+        title_match = TITLE_RE.search(page_html)
+        title = clean_remote_text(title_match.group(1) if title_match else "")
+        logger.info("Instagram parser found no media at %s. Page title: %s", normalized_url, title[:120])
+
+    return candidates[:limit]
+
+
+def work_from_payload(data: dict, *, instance: Work | None = None) -> Work:
+    work = instance or Work()
+    work.title = str(data["title"]).strip()
+    work.caption = str(data.get("caption") or "").strip() or None
+    work.image_url = str(data["image_url"]).strip()
+    work.source_url = str(data.get("source_url") or "").strip() or None
+    work.is_published = bool_from_value(data.get("is_published"), default=True)
+    sort = data.get("sort")
+    if sort is not None:
+        work.sort = int(sort)
+    elif not instance:
+        last_sort = Work.objects.order_by("-sort").values_list("sort", flat=True).first()
+        work.sort = int(last_sort or 0) + 1
+    return work
+
+
+def upsert_instagram_work(candidate: dict) -> tuple[Work, bool]:
+    source_url = candidate.get("source_url") or ""
+    image_url = candidate["image_url"]
+    work = Work.objects.filter(source_url=source_url).first() if source_url else None
+    if not work:
+        work = Work.objects.filter(image_url=image_url).first()
+
+    created = work is None
+    if created:
+        work = Work()
+        last_sort = Work.objects.order_by("-sort").values_list("sort", flat=True).first()
+        work.sort = int(last_sort or 0) + 1
+
+    work.title = candidate["title"]
+    work.caption = candidate.get("caption") or None
+    work.image_url = image_url
+    work.source_url = source_url or None
+    work.is_published = True
+    work.save()
+    return work, created
+
+
 def get_active_cart(user: User) -> Cart:
     cart, _ = Cart.objects.get_or_create(user=user, status="active")
     return cart
@@ -515,6 +687,196 @@ def product_details_view(request, slug: str):
 def reviews_view(request):
     rows = Review.objects.filter(is_published=True).order_by("sort", "-created_at")
     return Response([serialize_review(request, review) for review in rows])
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def instagram_works_view(request):
+    profile_url = settings.INSTAGRAM_PROFILE_URL
+    if not settings.INSTAGRAM_ACCESS_TOKEN:
+        return Response(
+            {
+                "configured": False,
+                "profile_url": profile_url,
+                "items": [],
+            }
+        )
+
+    cache_key = "instagram_works"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return Response(cached)
+
+    limit = max(1, min(int(settings.INSTAGRAM_WORKS_LIMIT), 24))
+    user_id = settings.INSTAGRAM_USER_ID or "me"
+    version = settings.INSTAGRAM_API_VERSION.strip("/")
+    fields = "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,username"
+    url = (
+        f"https://graph.instagram.com/{version}/{user_id}/media"
+        f"?fields={fields}&limit={limit}&access_token={settings.INSTAGRAM_ACCESS_TOKEN}"
+    )
+
+    try:
+        payload = fetch_json(url, timeout=20)
+    except Exception as exc:
+        logger.warning("Failed to fetch Instagram works: %s", exc)
+        return Response(
+            {
+                "configured": True,
+                "profile_url": profile_url,
+                "items": [],
+                "error": "INSTAGRAM_FETCH_FAILED",
+            }
+        )
+
+    items = []
+    for row in payload.get("data", []):
+        if not isinstance(row, dict):
+            continue
+
+        media_type = str(row.get("media_type") or "")
+        media_url = row.get("media_url") or row.get("thumbnail_url")
+        if media_type not in {"IMAGE", "CAROUSEL_ALBUM", "VIDEO"} or not media_url:
+            continue
+
+        items.append(
+            {
+                "id": str(row.get("id") or ""),
+                "caption": str(row.get("caption") or "").strip(),
+                "media_type": media_type,
+                "media_url": media_url,
+                "thumbnail_url": row.get("thumbnail_url") or media_url,
+                "permalink": row.get("permalink") or profile_url,
+                "timestamp": row.get("timestamp"),
+            }
+        )
+
+    response_payload = {
+        "configured": True,
+        "profile_url": profile_url,
+        "items": items,
+    }
+    cache.set(cache_key, response_payload, int(settings.INSTAGRAM_WORKS_CACHE_SECONDS))
+    return Response(response_payload)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def works_view(request):
+    rows = Work.objects.filter(is_published=True).order_by("sort", "-created_at")
+    return Response([serialize_work(request, work) for work in rows])
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_works_view(request):
+    if request.method == "GET":
+        rows = Work.objects.all().order_by("sort", "-created_at")
+        return Response([serialize_work(request, work, admin=True) for work in rows])
+
+    serializer = WorkPayloadSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    work = work_from_payload(serializer.validated_data)
+    work.save()
+    return Response(serialize_work(request, work, admin=True), status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "PUT", "DELETE"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_work_detail_view(request, work_id):
+    work = get_object_or_404(Work, pk=work_id)
+
+    if request.method == "GET":
+        return Response(serialize_work(request, work, admin=True))
+
+    if request.method == "DELETE":
+        work.delete()
+        return message_ok()
+
+    serializer = WorkPayloadSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    work = work_from_payload(serializer.validated_data, instance=work)
+    work.save()
+    return Response(serialize_work(request, work, admin=True))
+
+
+@api_view(["PUT"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+def admin_works_order_view(request):
+    serializer = SortSerializer(data=request.data, many=True)
+    serializer.is_valid(raise_exception=True)
+    mapping = {str(item["id"]): item["sort"] for item in serializer.validated_data}
+
+    rows = Work.objects.filter(id__in=mapping.keys())
+    for row in rows:
+        row.sort = mapping[str(row.id)]
+        row.save(update_fields=["sort", "updated_at"])
+    return message_ok()
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_works_import_instagram_view(request):
+    serializer = InstagramWorkImportSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        candidates = extract_instagram_work_candidates(
+            serializer.validated_data["source_url"],
+            limit=serializer.validated_data.get("limit") or 12,
+        )
+    except ValueError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as exc:
+        logger.exception("Instagram works import failed")
+        return Response(
+            {
+                "detail": "INSTAGRAM_IMPORT_FAILED",
+                "error": str(exc) or exc.__class__.__name__,
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+    if not candidates:
+        return Response(
+            {
+                "detail": "INSTAGRAM_MEDIA_NOT_FOUND",
+                "stats": {"fetched": 0, "created": 0, "updated": 0},
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    created = 0
+    updated = 0
+    works: list[Work] = []
+    for candidate in candidates:
+        work, was_created = upsert_instagram_work(candidate)
+        works.append(work)
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+
+    return Response(
+        {
+            "message": "OK",
+            "stats": {
+                "fetched": len(candidates),
+                "created": created,
+                "updated": updated,
+            },
+            "items": [serialize_work(request, work, admin=True) for work in works],
+        }
+    )
 
 
 @api_view(["POST"])
@@ -1966,10 +2328,12 @@ def admin_import_products_view(request):
 
                 stats = import_catalog_products(sheets)
     except Exception as exc:
+        logger.exception("Product Excel import failed")
         return Response(
             {
                 "detail": "IMPORT_FAILED",
                 "error": str(exc) or exc.__class__.__name__,
+                "error_type": exc.__class__.__name__,
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

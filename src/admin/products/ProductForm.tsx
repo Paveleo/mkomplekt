@@ -60,10 +60,24 @@ const defaultValues: FormValues = {
   is_published: true,
 }
 
-export default function ProductForm() {
-  const { id } = useParams()
+type ProductFormProps = {
+  productId?: string
+  mode?: 'page' | 'modal'
+  onDone?: () => void
+  onCancel?: () => void
+}
+
+export default function ProductForm({
+  productId,
+  mode = 'page',
+  onDone,
+  onCancel,
+}: ProductFormProps = {}) {
+  const { id: routeId } = useParams()
+  const id = productId ?? routeId
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isModal = mode === 'modal'
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const {
     register,
@@ -253,7 +267,11 @@ export default function ProductForm() {
       ])
 
       setNotice(id ? 'Карточка товара обновлена.' : 'Товар добавлен в каталог.')
-      navigate('/admin/products')
+      if (isModal) {
+        onDone?.()
+      } else {
+        navigate('/admin/products')
+      }
     } catch (requestError: any) {
       setError(requestError?.message ?? 'Не удалось сохранить товар.')
     }
@@ -261,9 +279,31 @@ export default function ProductForm() {
 
   const activeCategory = categories.find((item) => item.id === categoryId)?.title
   const galleryCount = existingImages.length + selectedFiles.length
+  const closeForm = () => {
+    if (isFormLocked) {
+      return
+    }
+
+    if (isModal) {
+      onCancel?.()
+    } else {
+      navigate('/admin/products')
+    }
+  }
 
   return (
-    <div className={styles.page}>
+    <div className={isModal ? styles.modalForm : styles.page}>
+      {isModal ? (
+        <div className={styles.cardHeader}>
+          <div>
+            <p className={styles.eyebrow}>Карточка товара</p>
+            <h2 className={styles.cardTitle}>{id ? 'Редактирование товара' : 'Новый товар'}</h2>
+            <p className={styles.cardText}>
+              Измените данные, фотографии и публикацию. После сохранения список обновится без перезагрузки страницы.
+            </p>
+          </div>
+        </div>
+      ) : (
       <div className={styles.pageHeader}>
         <div>
           <p className={styles.eyebrow}>Карточка товара</p>
@@ -275,11 +315,12 @@ export default function ProductForm() {
         </div>
 
         <div className={styles.actions}>
-          <button type="button" className={styles.buttonGhost} onClick={() => navigate('/admin/products')}>
+          <button type="button" className={styles.buttonGhost} onClick={closeForm}>
             Назад к списку
           </button>
         </div>
       </div>
+      )}
 
       {isLoadingProduct ? (
         <div className={styles.inlineNotice}>
@@ -523,7 +564,7 @@ export default function ProductForm() {
             <button
               type="button"
               className={styles.buttonSecondary}
-              onClick={() => navigate('/admin/products')}
+              onClick={closeForm}
               disabled={isFormLocked}
             >
               Отмена

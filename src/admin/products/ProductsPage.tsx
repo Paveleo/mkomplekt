@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { apiRequest } from '@/lib/api'
+import { ArrowDownIcon, ArrowUpIcon, BoxIcon, CatalogIcon, FolderIcon } from '@/admin/AdminIcons'
+import ProductForm from './ProductForm'
 import { arrayMove } from '../../utils/arrayMove'
 import styles from '../admin.module.css'
 
@@ -83,7 +85,7 @@ function CategoryTree({
             style={{ paddingLeft: 14 + level * 16 }}
             onClick={() => onSelect(category.id)}
           >
-            <span className={styles.folderIcon}>▣</span>
+            <FolderIcon className={styles.iconSvg} />
             <span>{category.title}</span>
           </button>
 
@@ -102,13 +104,13 @@ function CategoryTree({
 
 export default function ProductsPage() {
   const qc = useQueryClient()
-  const navigate = useNavigate()
 
   const [activeCategoryId, setActiveCategoryId] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [imageFilter, setImageFilter] = useState('')
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState<AdminProduct[]>([])
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkImageMode, setBulkImageMode] = useState<BulkImageMode>('keep')
   const [bulkImageFiles, setBulkImageFiles] = useState<File[]>([])
@@ -409,7 +411,7 @@ export default function ProductsPage() {
             className={!activeCategoryId ? styles.folderButtonActive : styles.folderButton}
             onClick={() => setActiveCategoryId('')}
           >
-            <span className={styles.folderIcon}>▤</span>
+            <CatalogIcon className={styles.iconSvg} />
             <span>Весь каталог</span>
           </button>
 
@@ -492,7 +494,7 @@ export default function ProductsPage() {
                   key={category.id}
                   onClick={() => setActiveCategoryId(category.id)}
                 >
-                  <span className={styles.folderCardIcon}>▣</span>
+                  <FolderIcon className={styles.iconSvgLarge} />
                   <span className={styles.folderCardTitle}>{category.title}</span>
                   <span className={styles.folderCardMeta}>
                     Подпапок: {(categoriesByParent.get(category.id) || []).length}
@@ -617,6 +619,15 @@ export default function ProductsPage() {
                     </div>
 
                     <div className={styles.selectionFieldsWide}>
+                      <label className={styles.fieldWide}>
+                        <span className={styles.fieldLabel}>Название</span>
+                        <input
+                          className={styles.input}
+                          value={product.title}
+                          onChange={(event) => updateSelectedRow(product.id, { title: event.target.value })}
+                        />
+                      </label>
+
                       <label className={styles.field}>
                         <span className={styles.fieldLabel}>Артикул</span>
                         <input
@@ -686,7 +697,7 @@ export default function ProductsPage() {
                       <button
                         type="button"
                         className={styles.buttonSecondary}
-                        onClick={() => navigate(`/admin/products/${product.id}`)}
+                        onClick={() => setEditingProductId(product.id)}
                       >
                         Карточка
                       </button>
@@ -733,7 +744,10 @@ export default function ProductsPage() {
                     {product.images?.[0]?.url ? (
                       <img src={product.images[0].url} alt={product.title} />
                     ) : (
-                      <span>Без фото</span>
+                      <span className={styles.noPhotoLabel}>
+                        <BoxIcon className={styles.iconSvg} />
+                        Без фото
+                      </span>
                     )}
                   </div>
 
@@ -757,21 +771,25 @@ export default function ProductsPage() {
                         onClick={() => move(index, -1)}
                         disabled={index === 0 || isReorderLocked}
                       >
-                        ↑
+                        <ArrowUpIcon className={styles.iconSvg} />
                       </button>
                       <button
                         className={styles.iconButton}
                         onClick={() => move(index, +1)}
                         disabled={index === rows.length - 1 || isReorderLocked}
                       >
-                        ↓
+                        <ArrowDownIcon className={styles.iconSvg} />
                       </button>
                     </div>
 
                     <div className={styles.tableActions}>
-                      <Link to={`/admin/products/${product.id}`} className={styles.buttonSecondary}>
+                      <button
+                        type="button"
+                        className={styles.buttonSecondary}
+                        onClick={() => setEditingProductId(product.id)}
+                      >
                         Редактировать
-                      </Link>
+                      </button>
                       <button className={styles.buttonDanger} onClick={() => handleDelete(product.id)}>
                         Удалить
                       </button>
@@ -789,6 +807,33 @@ export default function ProductsPage() {
           ) : null}
         </main>
       </div>
+
+      {editingProductId ? (
+        <div className={styles.modalBackdrop} role="presentation" onMouseDown={() => setEditingProductId(null)}>
+          <div
+            className={styles.modalPanelWide}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Редактирование товара"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.modalClose}
+              aria-label="Закрыть"
+              onClick={() => setEditingProductId(null)}
+            >
+              ×
+            </button>
+            <ProductForm
+              productId={editingProductId}
+              mode="modal"
+              onDone={() => setEditingProductId(null)}
+              onCancel={() => setEditingProductId(null)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

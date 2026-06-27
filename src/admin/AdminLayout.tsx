@@ -30,6 +30,7 @@ export default function AdminLayout() {
     { to: '/admin/categories', label: 'Категории', description: 'Структура каталога' },
     { to: '/admin/products', label: 'Товары', description: 'Карточки и публикация' },
     { to: '/admin/reviews', label: 'Отзывы', description: 'Отзывы, фото и порядок' },
+    { to: '/admin/works', label: 'Наши работы', description: 'Портфолио и Instagram' },
     { to: '/admin/import', label: 'Импорт Excel', description: 'Массовая загрузка из файла' },
     { to: '/admin/media-import', label: 'Фото', description: 'Автопарсинг из сайтов' },
   ]

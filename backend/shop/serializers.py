@@ -149,6 +149,20 @@ class ReviewPayloadSerializer(serializers.Serializer):
     remove_image = serializers.BooleanField(required=False)
 
 
+class WorkPayloadSerializer(serializers.Serializer):
+    title = serializers.CharField()
+    caption = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    image_url = serializers.URLField()
+    source_url = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    is_published = serializers.BooleanField(required=False)
+    sort = serializers.IntegerField(required=False, allow_null=True)
+
+
+class InstagramWorkImportSerializer(serializers.Serializer):
+    source_url = serializers.URLField()
+    limit = serializers.IntegerField(required=False, min_value=1, max_value=50, default=12)
+
+
 class TwoGisReviewImportSerializer(serializers.Serializer):
     source_url = serializers.URLField()
     limit = serializers.IntegerField(required=False, min_value=1, max_value=500)

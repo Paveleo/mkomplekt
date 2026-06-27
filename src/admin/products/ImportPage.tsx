@@ -17,7 +17,9 @@ type ImportResponse = {
 
 function getImportErrorMessage(error: any) {
   const detail = error?.detail || error?.response?.data?.detail
-  const backendError = error?.response?.data?.error
+  const payload = error?.payload || error?.response?.data
+  const backendError = payload?.error
+  const backendType = payload?.error_type
 
   if (detail === 'INVALID_FILE_FORMAT') {
     return 'Нужен Excel-файл в формате .xlsx'
@@ -37,7 +39,7 @@ function getImportErrorMessage(error: any) {
 
   if (detail === 'IMPORT_FAILED') {
     return backendError
-      ? `Импорт оборвался на сервере: ${backendError}`
+      ? `Импорт оборвался на сервере${backendType ? ` (${backendType})` : ''}: ${backendError}`
       : 'Импорт оборвался на сервере. Проверьте backend-логи.'
   }
 

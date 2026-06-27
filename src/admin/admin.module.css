@@ -630,6 +630,24 @@
   flex-wrap: wrap;
 }
 
+.workCell {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-width: 280px;
+}
+
+.workCell img {
+  width: 84px;
+  height: 64px;
+  display: block;
+  object-fit: cover;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: #f1ece5;
+}
+
 .checkboxCell {
   width: 52px;
   text-align: center;
@@ -664,8 +682,12 @@
 
 .selectionFieldsWide {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
   gap: 12px;
+}
+
+.selectionFieldsWide .fieldWide {
+  grid-column: span 3;
 }
 
 .iconButton {
@@ -859,6 +881,12 @@
   display: block;
 }
 
+.noPhotoLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .productCardBody {
   display: grid;
   gap: 8px;
@@ -888,6 +916,166 @@
   color: var(--admin-accent-dark);
   font-size: 12px;
   font-weight: 800;
+}
+
+.iconSvg,
+.buttonIcon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.iconSvgSmall {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+}
+
+.iconSvgLarge {
+  width: 34px;
+  height: 34px;
+}
+
+.buttonIcon {
+  margin-right: 6px;
+  vertical-align: -3px;
+}
+
+.categoryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.categoryAdminCard {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 34px rgba(67, 49, 34, 0.07);
+}
+
+.categoryCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.categoryIconBox {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.82), transparent 42%),
+    linear-gradient(135deg, rgba(139, 94, 60, 0.2), rgba(139, 94, 60, 0.08));
+  color: var(--admin-accent-dark);
+}
+
+.categoryCardBody {
+  display: grid;
+  gap: 6px;
+}
+
+.categoryCardBody h3 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.18;
+}
+
+.categoryCardBody p {
+  margin: 0;
+  color: var(--admin-muted);
+  overflow-wrap: anywhere;
+}
+
+.categoryMetaGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.categoryMetaGrid span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.categoryCardActions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+  gap: 10px;
+}
+
+.categoryCardActions .buttonSecondary,
+.categoryCardActions .buttonDanger {
+  width: 100%;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(32, 24, 18, 0.46);
+  backdrop-filter: blur(10px);
+}
+
+.modalPanel,
+.modalPanelWide {
+  position: relative;
+  width: min(100%, 760px);
+  max-height: min(92vh, 980px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at top left, rgba(139, 94, 60, 0.08), transparent 32%),
+    rgba(250, 247, 242, 0.98);
+  box-shadow: 0 34px 80px rgba(32, 24, 18, 0.28);
+}
+
+.modalPanelWide {
+  width: min(100%, 1180px);
+}
+
+.modalClose {
+  position: sticky;
+  top: 0;
+  left: 100%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin: 0 0 -42px auto;
+  border: 1px solid var(--admin-border);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(67, 49, 34, 0.12);
+}
+
+.modalForm {
+  display: grid;
+  gap: 16px;
+  padding: 8px 4px 4px;
 }
 
 .inlineNotice,
@@ -957,6 +1145,10 @@
     grid-template-columns: 1fr;
   }
 
+  .modalForm .contentSplit {
+    grid-template-columns: 1fr;
+  }
+
   .catalogExplorer {
     grid-template-columns: 1fr;
   }
@@ -968,6 +1160,11 @@
 
   .summaryCard {
     position: static;
+  }
+
+  .modalPanel,
+  .modalPanelWide {
+    max-height: 94vh;
   }
 }
 
@@ -1005,6 +1202,16 @@
   .buttonGhost,
   .buttonDanger {
     width: 100%;
+  }
+
+  .modalBackdrop {
+    padding: 10px;
+  }
+
+  .modalPanel,
+  .modalPanelWide {
+    border-radius: 22px;
+    padding: 12px;
   }
 
   .tableWrap {

@@ -1,4 +1,8 @@
-export type ApiError = Error & { status?: number; detail?: string };
+export type ApiError = Error & {
+  status?: number;
+  detail?: string;
+  payload?: unknown;
+};
 
 const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
 const apiBaseUrl = rawBaseUrl.replace(/\/+$/, '');
@@ -75,6 +79,7 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
     error.status = response.status;
     error.detail = detail;
+    error.payload = payload;
 
     throw error;
   }

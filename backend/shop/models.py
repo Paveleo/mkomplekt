@@ -138,6 +138,22 @@ class Review(TimeStampedModel):
         return self.name
 
 
+class Work(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    caption = models.TextField(blank=True, null=True)
+    image_url = models.TextField()
+    source_url = models.TextField(blank=True, null=True)
+    is_published = models.BooleanField(default=True)
+    sort = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort", "-created_at"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
 class ContactRequest(TimeStampedModel):
     STATUS_CHOICES = [
         ("new", "new"),

@@ -5,6 +5,7 @@ import HomePage from '@/pages/HomePage'
 import CatalogPage from '@/pages/CatalogPage'
 import CategoryPage from '@/pages/CategoryPage'
 import AboutPage from '@/pages/AboutPage'
+import WorksPage from '@/pages/WorksPage'
 import ContactsPage from '@/pages/ContactsPage'
 import ProductPage from '@/pages/ProductPage'
 import AuthPage from '@/pages/AuthPage'
@@ -23,6 +24,7 @@ import OrdersPage from '@/admin/orders/OrdersPage'
 import ContactRequestsPage from '@/admin/contact-requests/ContactRequestsPage'
 import ReviewsPage from '@/admin/reviews/ReviewsPage'
 import ReviewForm from '@/admin/reviews/ReviewForm'
+import WorksAdminPage from '@/admin/works/WorksPage'
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +34,7 @@ export const router = createBrowserRouter([
       { path: '/catalog', element: <CatalogPage /> },
       { path: '/catalog/*', element: <CategoryPage /> },
       { path: '/about', element: <AboutPage /> },
+      { path: '/works', element: <WorksPage /> },
       { path: '/contacts', element: <ContactsPage /> },
       { path: '/products/:slug', element: <ProductPage /> },
       { path: '/auth', element: <AuthPage /> },
@@ -54,6 +57,7 @@ export const router = createBrowserRouter([
       { path: 'reviews', element: <ReviewsPage /> },
       { path: 'reviews/new', element: <ReviewForm /> },
       { path: 'reviews/:id', element: <ReviewForm /> },
+      { path: 'works', element: <WorksAdminPage /> },
       { path: 'import', element: <ImportPage /> },
       { path: 'media-import', element: <MediaImportPage /> },
     ],

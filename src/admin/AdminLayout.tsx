@@ -1,6 +1,39 @@
+import type { ComponentType, SVGProps } from 'react'
 import { Navigate, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthProvider'
+import {
+  CatalogIcon,
+  DashboardIcon,
+  FolderIcon,
+  ImageIcon,
+  ImportIcon,
+  LogoutIcon,
+  OrdersIcon,
+  RequestIcon,
+  ReviewIcon,
+  WorksIcon,
+} from './AdminIcons'
 import styles from './admin.module.css'
+
+type AdminNavLink = {
+  to: string
+  label: string
+  description: string
+  icon: ComponentType<SVGProps<SVGSVGElement>>
+  end?: boolean
+}
+
+const links: AdminNavLink[] = [
+  { to: '/admin', label: 'Дашборд', description: 'Краткая сводка', icon: DashboardIcon, end: true },
+  { to: '/admin/orders', label: 'Заказы', description: 'Оформления из корзины', icon: OrdersIcon },
+  { to: '/admin/requests', label: 'Заявки', description: 'Сообщения клиентов', icon: RequestIcon },
+  { to: '/admin/categories', label: 'Категории', description: 'Структура каталога', icon: FolderIcon },
+  { to: '/admin/products', label: 'Товары', description: 'Карточки и цены', icon: CatalogIcon },
+  { to: '/admin/reviews', label: 'Отзывы', description: 'Отзывы и порядок', icon: ReviewIcon },
+  { to: '/admin/works', label: 'Наши работы', description: 'Портфолио', icon: WorksIcon },
+  { to: '/admin/import', label: 'Импорт Excel', description: 'Массовая загрузка', icon: ImportIcon },
+  { to: '/admin/media-import', label: 'Фото', description: 'Автопарсинг', icon: ImageIcon },
+]
 
 export default function AdminLayout() {
   const { loading, user, signOut } = useAuth()
@@ -23,49 +56,47 @@ export default function AdminLayout() {
     return <Navigate to="/admin/login" replace />
   }
 
-  const links = [
-    { to: '/admin', label: 'Дашборд', description: 'Краткая сводка по магазину', end: true },
-    { to: '/admin/orders', label: 'Заказы', description: 'Оформления из корзины' },
-    { to: '/admin/requests', label: 'Заявки', description: 'Сообщения из формы контактов' },
-    { to: '/admin/categories', label: 'Категории', description: 'Структура каталога' },
-    { to: '/admin/products', label: 'Товары', description: 'Карточки и публикация' },
-    { to: '/admin/reviews', label: 'Отзывы', description: 'Отзывы, фото и порядок' },
-    { to: '/admin/works', label: 'Наши работы', description: 'Портфолио и Instagram' },
-    { to: '/admin/import', label: 'Импорт Excel', description: 'Массовая загрузка из файла' },
-    { to: '/admin/media-import', label: 'Фото', description: 'Автопарсинг из сайтов' },
-  ]
-
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <span className={styles.brandLabel}>Admin</span>
-          <h1 className={styles.brandTitle}>МебельКомплект. Панель</h1>
-          <p className={styles.brandText}>
-            Управление каталогом, заказами, заявками, отзывами и публикацией контента на сайте.
-          </p>
+          <div className={styles.brandTop}>
+            <span className={styles.brandMark}>МК</span>
+            <span className={styles.brandLabel}>Admin</span>
+          </div>
+          <h1 className={styles.brandTitle}>МебельКомплект</h1>
+          <p className={styles.brandText}>Каталог, заказы, заявки, отзывы и контент сайта.</p>
         </div>
 
-        <nav className={styles.nav}>
-          {links.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`.trim()
-              }
-            >
-              <span className={styles.navTitle}>{link.label}</span>
-              <span className={styles.navSubtitle}>{link.description}</span>
-            </NavLink>
-          ))}
+        <nav className={styles.nav} aria-label="Разделы админки">
+          {links.map((link) => {
+            const Icon = link.icon
+            return (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`.trim()
+                }
+              >
+                <span className={styles.navIcon}>
+                  <Icon className={styles.iconSvg} />
+                </span>
+                <span className={styles.navCopy}>
+                  <span className={styles.navTitle}>{link.label}</span>
+                  <span className={styles.navSubtitle}>{link.description}</span>
+                </span>
+              </NavLink>
+            )
+          })}
         </nav>
 
         <div className={styles.sidebarFooter}>
           <div className={styles.userCard}>
+            <div className={styles.userAvatar}>{(user.full_name || user.email || 'A').charAt(0).toUpperCase()}</div>
             <div className={styles.userMeta}>
-              <span className={styles.userLabel}>Текущий пользователь</span>
+              <span className={styles.userLabel}>Администратор</span>
               <span className={styles.userValue}>{user.full_name || user.email}</span>
             </div>
           </div>
@@ -77,6 +108,7 @@ export default function AdminLayout() {
               location.href = '/admin/login'
             }}
           >
+            <LogoutIcon className={styles.buttonIcon} />
             Выйти
           </button>
         </div>

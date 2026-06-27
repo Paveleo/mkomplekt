@@ -81,14 +81,14 @@ class RegisterSerializer(LoginSerializer):
     full_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     phone = serializers.CharField()
     district = serializers.CharField()
-    city = serializers.CharField()
+    city = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def validate(self, attrs):
         if len(str(attrs.get("password") or "")) < 6:
             raise serializers.ValidationError({"detail": "PASSWORD_TOO_SHORT"})
         attrs["phone"] = normalize_ru_mobile_phone(attrs.get("phone"))
         attrs["district"] = validate_sakha_district(attrs.get("district"))
-        attrs["city"] = normalize_required_text(attrs.get("city"), "CITY_REQUIRED")
+        attrs["city"] = str(attrs.get("city") or "").strip() or None
         attrs["full_name"] = normalize_required_text(attrs.get("full_name"), "FULL_NAME_REQUIRED")
         return attrs
 

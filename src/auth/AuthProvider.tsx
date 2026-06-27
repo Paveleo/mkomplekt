@@ -21,7 +21,7 @@ type RegisterPayload = LoginPayload & {
   full_name: string;
   phone: string;
   district: string;
-  city: string;
+  city?: string;
 };
 
 type AuthContextValue = {

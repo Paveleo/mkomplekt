@@ -18,10 +18,39 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Model
 from openpyxl import load_workbook
+from rest_framework.exceptions import ValidationError
 
 
 logger = logging.getLogger(__name__)
 REMOTE_MEDIA_DOWNLOAD_TIMEOUT = 10
+MAX_IMAGE_UPLOAD_SIZE = 10 * 1024 * 1024
+MAX_REMOTE_MEDIA_SIZE = 10 * 1024 * 1024
+UPLOAD_IMAGE_CONTENT_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+REMOTE_IMAGE_CONTENT_TYPES = {
+    "image/avif",
+    "image/gif",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+UPLOAD_IMAGE_EXTENSIONS = {
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+}
+REMOTE_IMAGE_EXTENSIONS = {
+    ".avif",
+    ".gif",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+}
 
 
 FLAT_IMPORT_HEADERS = {
@@ -113,12 +142,97 @@ def remove_media_file(path_str: str | None) -> None:
         target_path.unlink()
 
 
+def _content_type_extension(content_type: str) -> str:
+    if content_type == "image/jpeg":
+        return ".jpg"
+    extension = mimetypes.guess_extension(content_type) or ".jpg"
+    return ".jpg" if extension.lower() == ".jpe" else extension.lower()
+
+
+def _read_uploaded_header(file: UploadedFile, size: int = 16) -> bytes:
+    try:
+        file.seek(0)
+        header = file.read(size)
+        file.seek(0)
+        return header
+    except (AttributeError, OSError):
+        return b""
+
+
+def _matches_upload_signature(content_type: str, header: bytes) -> bool:
+    if content_type == "image/jpeg":
+        return header.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return header.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/webp":
+        return len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WEBP"
+    return False
+
+
+def validate_uploaded_image(file: UploadedFile) -> str:
+    size = getattr(file, "size", 0) or 0
+    if size <= 0:
+        raise ValidationError({"image": "Пустой файл изображения."})
+    if size > MAX_IMAGE_UPLOAD_SIZE:
+        raise ValidationError({"image": "Изображение должно быть не больше 10 МБ."})
+
+    content_type = (getattr(file, "content_type", "") or "").split(";")[0].strip().lower()
+    if content_type not in UPLOAD_IMAGE_CONTENT_TYPES:
+        raise ValidationError({"image": "Разрешены только JPG, PNG и WEBP изображения."})
+
+    extension = Path(file.name or "").suffix.lower() or _content_type_extension(content_type)
+    if extension not in UPLOAD_IMAGE_EXTENSIONS:
+        raise ValidationError({"image": "Разрешены только файлы .jpg, .jpeg, .png и .webp."})
+
+    if not _matches_upload_signature(content_type, _read_uploaded_header(file)):
+        raise ValidationError({"image": "Файл не похож на настоящее изображение."})
+    return ".jpg" if extension == ".jpeg" else extension
+
+
+def _response_content_type(headers) -> str:
+    if hasattr(headers, "get_content_type"):
+        return (headers.get_content_type() or "").lower()
+    return (headers.get("Content-Type") or "").split(";")[0].strip().lower()
+
+
+def _remote_content_length(headers) -> int | None:
+    raw_value = headers.get("Content-Length") if hasattr(headers, "get") else None
+    if not raw_value:
+        return None
+    try:
+        return int(raw_value)
+    except (TypeError, ValueError):
+        return None
+
+
+def validate_remote_media_response(headers) -> None:
+    content_type = _response_content_type(headers)
+    if content_type not in REMOTE_IMAGE_CONTENT_TYPES:
+        raise ValueError("UNSUPPORTED_REMOTE_IMAGE_TYPE")
+
+    content_length = _remote_content_length(headers)
+    if content_length is not None and content_length > MAX_REMOTE_MEDIA_SIZE:
+        raise ValueError("REMOTE_IMAGE_TOO_LARGE")
+
+
+def copy_limited_response(response, output) -> None:
+    total_size = 0
+    while True:
+        chunk = response.read(64 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_REMOTE_MEDIA_SIZE:
+            raise ValueError("REMOTE_IMAGE_TOO_LARGE")
+        output.write(chunk)
+
+
 def store_uploaded_file(scope: str, entity_id: str, file: UploadedFile, *, prefix: str) -> str:
     ensure_media_root()
     entity_dir = Path(settings.MEDIA_ROOT) / scope / entity_id
     entity_dir.mkdir(parents=True, exist_ok=True)
 
-    extension = Path(file.name).suffix.lower() or ".jpg"
+    extension = validate_uploaded_image(file)
     filename = f"{prefix}-{uuid4().hex}{extension}"
     target_path = entity_dir / filename
     with target_path.open("wb") as output:
@@ -144,7 +258,7 @@ def replace_product_images(product_id: str, files: list[UploadedFile]) -> list[s
 
     stored_paths: list[str] = []
     for index, file in enumerate(files):
-        extension = Path(file.name).suffix.lower() or ".jpg"
+        extension = validate_uploaded_image(file)
         filename = f"image-{index + 1}-{uuid4().hex}{extension}"
         target_path = product_dir / filename
         with target_path.open("wb") as output:
@@ -163,7 +277,7 @@ def append_product_images(product_id: str, files: list[UploadedFile], *, start_s
 
     stored_paths: list[str] = []
     for offset, file in enumerate(files):
-        extension = Path(file.name).suffix.lower() or ".jpg"
+        extension = validate_uploaded_image(file)
         filename = f"image-{start_sort + offset + 1}-{uuid4().hex}{extension}"
         target_path = product_dir / filename
         with target_path.open("wb") as output:
@@ -190,7 +304,7 @@ def guess_media_extension(source_url: str, headers=None) -> str:
 
     parsed = urllib.parse.urlparse(source_url)
     suffix = Path(parsed.path).suffix.lower()
-    if suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".svg"}:
+    if suffix in REMOTE_IMAGE_EXTENSIONS:
         return ".jpg" if suffix == ".jpeg" else suffix
     return ".jpg"
 
@@ -218,11 +332,18 @@ def download_remote_media(scope: str, entity_id: str, source_url: str, *, prefix
         },
     )
     with urllib.request.urlopen(request, timeout=REMOTE_MEDIA_DOWNLOAD_TIMEOUT) as response:
+        validate_remote_media_response(response.headers)
         extension = guess_media_extension(source_url, response.headers)
+        if extension not in REMOTE_IMAGE_EXTENSIONS:
+            raise ValueError("UNSUPPORTED_REMOTE_IMAGE_EXTENSION")
         filename = f"{prefix}-{uuid4().hex}{extension}"
         target_path = entity_dir / filename
-        with target_path.open("wb") as output:
-            shutil.copyfileobj(response, output)
+        try:
+            with target_path.open("wb") as output:
+                copy_limited_response(response, output)
+        except Exception:
+            remove_media_file(str(Path(scope) / entity_id / filename).replace("\\", "/"))
+            raise
     return str(Path(scope) / entity_id / filename).replace("\\", "/")
 
 

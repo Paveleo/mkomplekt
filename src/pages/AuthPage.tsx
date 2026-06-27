@@ -45,29 +45,6 @@ const sakhaDistricts = [
   'Эвено-Бытантайский национальный улус',
 ]
 
-const citySuggestions = [
-  'Якутск',
-  'Жатай',
-  'Нерюнгри',
-  'Мирный',
-  'Алдан',
-  'Ленск',
-  'Вилюйск',
-  'Нюрба',
-  'Покровск',
-  'Олекминск',
-  'Томмот',
-  'Удачный',
-  'Айхал',
-  'Чернышевский',
-  'Сунтар',
-  'Майя',
-  'Амга',
-  'Чурапча',
-  'Хандыга',
-  'Тикси',
-]
-
 const benefits = [
   'Сохраняйте корзину и возвращайтесь к ней с любого устройства.',
   'Быстрее оформляйте заявки без повторного ввода контактов.',
@@ -102,7 +79,6 @@ export default function AuthPage() {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [district, setDistrict] = useState('')
-  const [city, setCity] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -169,7 +145,6 @@ export default function AuthPage() {
 
       const trimmedFullName = fullName.trim()
       const normalizedPhone = normalizePhoneInput(phone)
-      const trimmedCity = city.trim()
 
       if (!trimmedFullName) {
         setError('Введите ФИО.')
@@ -181,10 +156,6 @@ export default function AuthPage() {
       }
       if (!district) {
         setError('Выберите район или городской округ Республики Саха (Якутия).')
-        return
-      }
-      if (!trimmedCity) {
-        setError('Введите город или населенный пункт.')
         return
       }
       if (!trimmedEmail) {
@@ -202,7 +173,6 @@ export default function AuthPage() {
         full_name: trimmedFullName,
         phone: normalizedPhone,
         district,
-        city: trimmedCity,
       })
       navigate(redirect, { replace: true })
     } catch (submitError: any) {
@@ -321,21 +291,6 @@ export default function AuthPage() {
                     </select>
                   </label>
 
-                  <label className={s.field}>
-                    <span>Город или населенный пункт</span>
-                    <input
-                      value={city}
-                      onChange={(event) => setCity(event.target.value)}
-                      placeholder="Например, Якутск"
-                      list="sakha-city-suggestions"
-                      required
-                    />
-                    <datalist id="sakha-city-suggestions">
-                      {citySuggestions.map((item) => (
-                        <option key={item} value={item} />
-                      ))}
-                    </datalist>
-                  </label>
                 </>
               ) : null}
 

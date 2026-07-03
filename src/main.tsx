@@ -8,7 +8,11 @@ import { queryClient } from './lib/queryClient'
 import './styles/globals.css'
 
 const savedTheme = localStorage.getItem('site-theme')
-document.documentElement.dataset.theme = savedTheme === 'light' ? 'light' : 'dark'
+if (savedTheme === 'dark') {
+  document.documentElement.dataset.theme = 'dark'
+} else {
+  document.documentElement.dataset.theme = 'light'
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -18,7 +18,7 @@ const reviewUrl =
 type ThemeMode = 'light' | 'dark'
 
 function getInitialTheme(): ThemeMode {
-  return localStorage.getItem('site-theme') === 'light' ? 'light' : 'dark'
+  return localStorage.getItem('site-theme') === 'dark' ? 'dark' : 'light'
 }
 
 export default function Header() {

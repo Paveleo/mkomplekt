@@ -352,3 +352,74 @@
     align-items: flex-start;
   }
 }
+
+:global(html[data-theme='dark']) .wrap::before {
+  background: radial-gradient(circle, rgba(212, 168, 106, 0.14) 0%, rgba(212, 168, 106, 0) 72%);
+}
+
+:global(html[data-theme='dark']) .wrap::after {
+  background: radial-gradient(circle, rgba(80, 112, 148, 0.16) 0%, rgba(80, 112, 148, 0) 72%);
+}
+
+:global(html[data-theme='dark']) .story,
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.32);
+}
+
+:global(html[data-theme='dark']) .card {
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.96), rgba(13, 18, 25, 0.94));
+}
+
+:global(html[data-theme='dark']) .switcher {
+  background: rgba(12, 17, 24, 0.84);
+}
+
+:global(html[data-theme='dark']) .switch {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .switch:hover,
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .field {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .switchActive {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+  box-shadow: 0 12px 24px rgba(212, 168, 106, 0.2);
+}
+
+:global(html[data-theme='dark']) .cardEyebrow,
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .footerText {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .field input,
+:global(html[data-theme='dark']) .field select {
+  border-color: rgba(231, 218, 196, 0.14);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .submit {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+  box-shadow: 0 18px 34px rgba(212, 168, 106, 0.18);
+}
+
+:global(html[data-theme='dark']) .error {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(153, 27, 27, 0.18);
+  color: #fecaca;
+}
+
+:global(html[data-theme='dark']) .footer {
+  border-top-color: rgba(231, 218, 196, 0.12);
+}
+
+:global(html[data-theme='dark']) .footerLink {
+  color: var(--site-accent-strong);
+}

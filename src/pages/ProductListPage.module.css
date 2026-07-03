@@ -56,3 +56,12 @@
   .grid{ grid-template-columns: 1fr; row-gap: 24px; }
   .title{ margin-bottom: 12px; }
 }
+
+:global(html[data-theme='dark']) .back,
+:global(html[data-theme='dark']) .empty {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .title {
+  color: var(--site-heading);
+}

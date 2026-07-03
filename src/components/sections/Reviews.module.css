@@ -287,3 +287,60 @@
     height: 44px;
   }
 }
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .quoteMark {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .name,
+:global(html[data-theme='dark']) .counter,
+:global(html[data-theme='dark']) .counterCurrent {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .meta,
+:global(html[data-theme='dark']) .paragraph,
+:global(html[data-theme='dark']) .counterDivider,
+:global(html[data-theme='dark']) .counterTotal {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .mediaCard,
+:global(html[data-theme='dark']) .quoteCard {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.3);
+}
+
+:global(html[data-theme='dark']) .avatar,
+:global(html[data-theme='dark']) .photo {
+  background: #141b25;
+}
+
+:global(html[data-theme='dark']) .avatarPlaceholder,
+:global(html[data-theme='dark']) .photoPlaceholder {
+  background: linear-gradient(135deg, #1a2230 0%, #111821 100%);
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .progressTrack {
+  background: rgba(231, 218, 196, 0.12);
+}
+
+:global(html[data-theme='dark']) .progressFill {
+  background: linear-gradient(90deg, #f0c783 0%, #d4a86a 100%);
+}
+
+:global(html[data-theme='dark']) .navBtn {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .navBtn:hover {
+  border-color: rgba(240, 199, 131, 0.34);
+  background: rgba(20, 27, 37, 0.96);
+}

@@ -260,3 +260,54 @@
     font-size: 15px;
   }
 }
+
+:global(html[data-theme='dark']) .wrap {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.72) 240px, transparent 100%);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .cardIndex {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .metaValue,
+:global(html[data-theme='dark']) .categoryLink,
+:global(html[data-theme='dark']) .toggle {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .metaLabel,
+:global(html[data-theme='dark']) .cardCount,
+:global(html[data-theme='dark']) .childLink,
+:global(html[data-theme='dark']) .message {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .metaCard,
+:global(html[data-theme='dark']) .panel,
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.9), rgba(13, 18, 25, 0.88));
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.26);
+}
+
+:global(html[data-theme='dark']) .card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+:global(html[data-theme='dark']) .headingRule::before {
+  background: linear-gradient(90deg, transparent, rgba(240, 199, 131, 0.22), transparent);
+}
+
+:global(html[data-theme='dark']) .headingRule::after {
+  background: linear-gradient(90deg, #f0c783 0%, #d4a86a 100%);
+}
+
+:global(html[data-theme='dark']) .categoryLink:hover,
+:global(html[data-theme='dark']) .childLink:hover {
+  color: var(--site-heading);
+}

@@ -259,3 +259,71 @@
     width: 100%;
   }
 }
+
+:global(html[data-theme='dark']) .wrap {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.74) 220px, transparent 100%);
+}
+
+:global(html[data-theme='dark']) .hero,
+:global(html[data-theme='dark']) .card,
+:global(html[data-theme='dark']) .emptyCard,
+:global(html[data-theme='dark']) .statCard,
+:global(html[data-theme='dark']) .quickCard {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .quickLabel {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .statValue,
+:global(html[data-theme='dark']) .sectionTitle,
+:global(html[data-theme='dark']) .field,
+:global(html[data-theme='dark']) .quickTitle {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .text,
+:global(html[data-theme='dark']) .statLabel {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .field input,
+:global(html[data-theme='dark']) .field select {
+  border-color: rgba(231, 218, 196, 0.14);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .primary {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+}
+
+:global(html[data-theme='dark']) .secondary {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .exit {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(153, 27, 27, 0.16);
+  color: #fecaca;
+}
+
+:global(html[data-theme='dark']) .message {
+  background: rgba(22, 101, 52, 0.18);
+  color: #a7f3d0;
+}
+
+:global(html[data-theme='dark']) .error {
+  background: rgba(153, 27, 27, 0.18);
+  color: #fecaca;
+}

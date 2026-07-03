@@ -354,3 +354,81 @@
     padding: 24px;
   }
 }
+
+:global(html[data-theme='dark']) .wrap {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.82) 260px, transparent 100%);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .cardLabel,
+:global(html[data-theme='dark']) .index,
+:global(html[data-theme='dark']) .typeInline {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .cardBody h2,
+:global(html[data-theme='dark']) .modalBody h2 {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .cardText,
+:global(html[data-theme='dark']) .message,
+:global(html[data-theme='dark']) .cardBody p,
+:global(html[data-theme='dark']) .modalBody p {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .heroCard,
+:global(html[data-theme='dark']) .message,
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.3);
+}
+
+:global(html[data-theme='dark']) .actionPrimary,
+:global(html[data-theme='dark']) .heroLink {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+  box-shadow: 0 18px 34px rgba(212, 168, 106, 0.18);
+}
+
+:global(html[data-theme='dark']) .actionSecondary {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .media,
+:global(html[data-theme='dark']) .modalMedia {
+  background: #141b25;
+}
+
+:global(html[data-theme='dark']) .mediaFallback {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .type,
+:global(html[data-theme='dark']) .typeInline {
+  background: rgba(212, 168, 106, 0.16);
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .modalOverlay {
+  background: rgba(3, 6, 10, 0.78);
+}
+
+:global(html[data-theme='dark']) .modalCard {
+  border-color: rgba(231, 218, 196, 0.18);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.98), rgba(13, 18, 25, 0.98));
+}
+
+:global(html[data-theme='dark']) .modalClose {
+  border-color: rgba(231, 218, 196, 0.18);
+  background: rgba(12, 17, 24, 0.9);
+  color: var(--site-heading);
+}

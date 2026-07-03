@@ -195,3 +195,43 @@
     font-size: 22px;
   }
 }
+
+:global(html[data-theme='dark']) .wrap {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.74) 220px, transparent 100%);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .cardEyebrow,
+:global(html[data-theme='dark']) .label {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .h1,
+:global(html[data-theme='dark']) .link,
+:global(html[data-theme='dark']) .textStrong,
+:global(html[data-theme='dark']) .cardTitle {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .lead,
+:global(html[data-theme='dark']) .text,
+:global(html[data-theme='dark']) .cardSub {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .infoCard,
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .headingRule::before {
+  background: linear-gradient(90deg, transparent, rgba(240, 199, 131, 0.22), transparent);
+}
+
+:global(html[data-theme='dark']) .headingRule::after {
+  background: linear-gradient(90deg, #f0c783 0%, #d4a86a 100%);
+}

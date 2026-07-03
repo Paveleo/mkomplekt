@@ -240,3 +240,56 @@
     align-items: flex-start;
   }
 }
+
+:global(html[data-theme='dark']) .back,
+:global(html[data-theme='dark']) .note,
+:global(html[data-theme='dark']) .description,
+:global(html[data-theme='dark']) .specRow dt,
+:global(html[data-theme='dark']) .skel {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.3);
+}
+
+:global(html[data-theme='dark']) .media,
+:global(html[data-theme='dark']) .thumbButton {
+  border-color: rgba(231, 218, 196, 0.14);
+  background: linear-gradient(135deg, #141b25 0%, #0d1219 100%);
+}
+
+:global(html[data-theme='dark']) .h1,
+:global(html[data-theme='dark']) .price,
+:global(html[data-theme='dark']) .specRow dd {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .specs,
+:global(html[data-theme='dark']) .specRow {
+  border-color: rgba(231, 218, 196, 0.12);
+}
+
+:global(html[data-theme='dark']) .btn {
+  border-color: rgba(240, 199, 131, 0.62);
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+}
+
+:global(html[data-theme='dark']) .btnGhost {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .cartMessage {
+  background: rgba(22, 101, 52, 0.18);
+  color: #a7f3d0;
+}
+
+:global(html[data-theme='dark']) .cartMessageError {
+  background: rgba(153, 27, 27, 0.18);
+  color: #fecaca;
+}

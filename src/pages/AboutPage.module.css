@@ -229,3 +229,48 @@
     padding-right: 18px;
   }
 }
+
+:global(html[data-theme='dark']) .wrap {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.74) 240px, transparent 100%);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .storyEyebrow,
+:global(html[data-theme='dark']) .noteLabel {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .factValue,
+:global(html[data-theme='dark']) .storyTitle {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .noteText,
+:global(html[data-theme='dark']) .factLabel,
+:global(html[data-theme='dark']) .storyText {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .heroNote,
+:global(html[data-theme='dark']) .factCard,
+:global(html[data-theme='dark']) .storyCard {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .storyMedia {
+  background: #141b25;
+}
+
+:global(html[data-theme='dark']) .headingRule::before {
+  background: linear-gradient(90deg, transparent, rgba(240, 199, 131, 0.22), transparent);
+}
+
+:global(html[data-theme='dark']) .headingRule::after {
+  background: linear-gradient(90deg, #f0c783 0%, #d4a86a 100%);
+}

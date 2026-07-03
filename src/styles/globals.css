@@ -9,178 +9,27 @@ img { max-width: 100%; display: block; }
 .grid { display: grid; gap: 24px; }
 header a.active, nav a.active { text-decoration: underline; }
 
+html[data-theme='dark'] body {
+  background: var(--site-bg);
+}
+
 html[data-theme='dark'] .siteShell {
   color: var(--site-text);
   background:
-    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.13), transparent 32%),
-    radial-gradient(circle at 92% 12%, rgba(81, 111, 148, 0.18), transparent 34%),
-    linear-gradient(180deg, #080b10 0%, #0d1219 46%, #080b10 100%);
+    radial-gradient(circle at 18% -10%, rgba(212, 168, 106, 0.12), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(80, 112, 148, 0.13), transparent 32%),
+    linear-gradient(180deg, #090d13 0%, #0d1219 46%, #090d13 100%);
 }
 
 html[data-theme='dark'] .siteShell main {
   background: transparent;
 }
 
-html[data-theme='dark'] .siteShell :where(
-  [class*="_header_"],
-  [class*="_footer_"],
-  [class*="_wrap_"],
-  [class*="_hero_"],
-  [class*="_panel_"]
-) {
-  background:
-    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.11), transparent 34%),
-    linear-gradient(180deg, rgba(13, 18, 25, 0.98) 0%, rgba(8, 11, 16, 0.98) 100%) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_card_"],
-  [class*="_heroCard_"],
-  [class*="_ctaCard_"],
-  [class*="_panel_"],
-  [class*="_form_"],
-  [class*="_summary_"],
-  [class*="_item_"],
-  [class*="_productCard_"],
-  [class*="_categoryCard_"]
-) {
-  border-color: var(--site-border) !important;
-  background:
-    linear-gradient(180deg, rgba(24, 31, 41, 0.96), rgba(15, 21, 30, 0.92)) !important;
-  color: var(--site-text) !important;
-  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.28) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  h1,
-  h2,
-  h3,
-  [class*="_title_"],
-  [class*="_h1_"],
-  [class*="_logo_"],
-  [class*="_head_"],
-  [class*="_ctaPhone_"],
-  [class*="_cardBody_"] h2,
-  [class*="_productCardBody_"] h3,
-  [class*="_categoryCardBody_"] h3
-) {
-  color: var(--site-heading) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  p,
-  dt,
-  dd,
-  [class*="_subtitle_"],
-  [class*="_text_"],
-  [class*="_cardText_"],
-  [class*="_meta_"],
-  [class*="_note_"],
-  [class*="_description_"],
-  [class*="_empty_"],
-  [class*="_back_"],
-  [class*="_links_"] a,
-  [class*="_links_"] span
-) {
-  color: var(--site-muted) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_eyebrow_"],
-  [class*="_cardLabel_"],
-  [class*="_sectionHeader_"],
-  [class*="_index_"],
-  [class*="_typeInline_"]
-) {
-  color: var(--site-accent-strong) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_navLink_"],
-  [class*="_mobileNavLink_"],
-  [class*="_actionLink_"],
-  [class*="_actionSecondary_"],
-  [class*="_secondary_"],
-  [class*="_btnGhost_"],
-  [class*="_burger_"],
-  [class*="_themeToggle_"],
-  [class*="_thumbButton_"],
-  input,
-  textarea,
-  select
-) {
-  border-color: var(--site-border) !important;
-  background: rgba(12, 17, 24, 0.78) !important;
-  color: var(--site-text) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_navLink_"]:hover,
-  [class*="_mobileNavLink_"]:hover,
-  [class*="_navLinkActive_"],
-  [class*="_mobileNavLinkActive_"]
-) {
-  background: rgba(212, 168, 106, 0.13) !important;
-  color: var(--site-heading) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_actionPrimary_"],
-  [class*="_primary_"],
-  [class*="_btn_"]:not([class*="_btnGhost_"]),
-  [class*="_heroLink_"]
-) {
-  border-color: rgba(240, 199, 131, 0.58) !important;
-  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%) !important;
-  color: #111111 !important;
-  box-shadow: 0 18px 34px rgba(212, 168, 106, 0.18) !important;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_media_"],
-  [class*="_thumb_"],
-  [class*="_summaryPreview_"],
-  [class*="_photo_"],
-  [class*="_photoPlaceholder_"],
-  [class*="_mediaFallback_"],
-  [class*="_noimg_"]
-) {
-  border-color: var(--site-border) !important;
-  background: linear-gradient(135deg, #151b24 0%, #0d1219 100%) !important;
-  color: var(--site-muted) !important;
-}
-
-html[data-theme='dark'] .siteShell :where([class*="_media_"] img, [class*="_thumb_"] img, [class*="_photo_"] img) {
-  background: #111827;
-}
-
-html[data-theme='dark'] .siteShell :where(
-  [class*="_type_"],
-  [class*="_pill_"],
-  [class*="_badge_"],
-  [class*="_status_"],
-  [class*="_cartMessage_"]
-) {
-  border-color: var(--site-border) !important;
-  background: rgba(212, 168, 106, 0.14) !important;
-  color: var(--site-accent-strong) !important;
-}
-
-html[data-theme='dark'] .siteShell :where([class*="_modalOverlay_"]) {
-  background: rgba(3, 6, 10, 0.78) !important;
-}
-
-html[data-theme='dark'] .siteShell :where([class*="_modalCard_"]) {
-  border-color: var(--site-border-strong) !important;
-  background: var(--site-surface-strong) !important;
-}
-
-html[data-theme='dark'] .siteShell :where([class*="_modalClose_"]) {
-  border-color: var(--site-border) !important;
-  background: rgba(12, 17, 24, 0.9) !important;
-  color: var(--site-heading) !important;
+html[data-theme='dark'] .siteShell ::selection {
+  background: rgba(212, 168, 106, 0.35);
+  color: #fff8ef;
 }
 
 html[data-theme='dark'] .siteShell ::placeholder {
-  color: rgba(168, 176, 189, 0.74);
+  color: rgba(168, 176, 189, 0.72);
 }

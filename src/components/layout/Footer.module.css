@@ -204,3 +204,57 @@
     align-items: flex-start;
   }
 }
+
+:global(html[data-theme='dark']) .footer {
+  border-top-color: rgba(231, 218, 196, 0.12);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(212, 168, 106, 0.1), transparent 36%),
+    linear-gradient(180deg, rgba(13, 18, 25, 0.98) 0%, rgba(8, 11, 16, 0.98) 100%);
+}
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .ctaLabel {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .head,
+:global(html[data-theme='dark']) .ctaPhone {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .text,
+:global(html[data-theme='dark']) .ctaText,
+:global(html[data-theme='dark']) .links a,
+:global(html[data-theme='dark']) .links span,
+:global(html[data-theme='dark']) .copy,
+:global(html[data-theme='dark']) .meta {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .ctaCard {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(24, 31, 41, 0.92), rgba(15, 21, 30, 0.9));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .primary {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+  box-shadow: 0 16px 32px rgba(212, 168, 106, 0.18);
+}
+
+:global(html[data-theme='dark']) .secondary {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .linksGrid,
+:global(html[data-theme='dark']) .bottom {
+  border-top-color: rgba(231, 218, 196, 0.12);
+}
+
+:global(html[data-theme='dark']) .links a:hover {
+  color: var(--site-heading);
+}

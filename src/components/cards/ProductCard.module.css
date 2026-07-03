@@ -45,3 +45,32 @@
     height:58px;
   }
 }
+
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.2);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.9), rgba(13, 18, 25, 0.88));
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .card:hover {
+  border-color: rgba(240, 199, 131, 0.38);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.34);
+}
+
+:global(html[data-theme='dark']) .thumb {
+  border: 1px solid rgba(231, 218, 196, 0.12);
+  background: linear-gradient(135deg, #141b25 0%, #0d1219 100%);
+}
+
+:global(html[data-theme='dark']) .title {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .meta {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .colorPreview {
+  border-color: rgba(13, 18, 25, 0.92);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38);
+}

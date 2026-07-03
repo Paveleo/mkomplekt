@@ -91,3 +91,24 @@
     font-size: 15px;
   }
 }
+
+:global(html[data-theme='dark']) .eyebrow,
+:global(html[data-theme='dark']) .no {
+  color: var(--site-accent-strong);
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .cardTitle {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .text {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .card {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.26);
+}

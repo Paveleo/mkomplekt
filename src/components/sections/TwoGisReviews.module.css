@@ -183,3 +183,48 @@
     width: 100%;
   }
 }
+
+:global(html[data-theme='dark']) .panel,
+:global(html[data-theme='dark']) .companyCard {
+  border-color: rgba(231, 218, 196, 0.16);
+  background:
+    radial-gradient(circle at top left, rgba(58, 123, 84, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(20, 27, 37, 0.92), rgba(13, 18, 25, 0.9));
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+}
+
+:global(html[data-theme='dark']) .eyebrow {
+  color: #82d39d;
+}
+
+:global(html[data-theme='dark']) .title,
+:global(html[data-theme='dark']) .companyName,
+:global(html[data-theme='dark']) .statValue {
+  color: var(--site-heading);
+}
+
+:global(html[data-theme='dark']) .subtitle,
+:global(html[data-theme='dark']) .companyAddress,
+:global(html[data-theme='dark']) .statLabel,
+:global(html[data-theme='dark']) .note {
+  color: var(--site-muted);
+}
+
+:global(html[data-theme='dark']) .stats {
+  background: rgba(58, 123, 84, 0.16);
+}
+
+:global(html[data-theme='dark']) .statDivider {
+  background: rgba(231, 218, 196, 0.14);
+}
+
+:global(html[data-theme='dark']) .primary {
+  background: linear-gradient(135deg, #f0c783 0%, #d4a86a 100%);
+  color: #15100b;
+}
+
+:global(html[data-theme='dark']) .secondary {
+  border-color: rgba(231, 218, 196, 0.16);
+  background: rgba(12, 17, 24, 0.84);
+  color: var(--site-heading);
+}

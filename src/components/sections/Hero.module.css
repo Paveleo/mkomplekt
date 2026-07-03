@@ -272,9 +272,7 @@
 }
 
 :global(html[data-theme='dark']) .hero {
-  background:
-    radial-gradient(circle at 10% 0%, rgba(212, 168, 106, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.95) 240px, transparent 100%);
+  background: transparent;
 }
 
 :global(html[data-theme='dark']) .eyebrow {

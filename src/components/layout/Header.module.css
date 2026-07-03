@@ -319,7 +319,7 @@
 }
 
 :global(html[data-theme='dark']) .header {
-  background: linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(9, 13, 19, 0.9) 100%);
+  background: transparent;
 }
 
 :global(html[data-theme='dark']) .panel,

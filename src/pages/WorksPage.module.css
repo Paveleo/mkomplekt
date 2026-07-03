@@ -356,9 +356,7 @@
 }
 
 :global(html[data-theme='dark']) .wrap {
-  background:
-    radial-gradient(circle at 14% 0%, rgba(212, 168, 106, 0.1), transparent 34%),
-    linear-gradient(180deg, rgba(9, 13, 19, 0.98) 0%, rgba(13, 18, 25, 0.82) 260px, transparent 100%);
+  background: transparent;
 }
 
 :global(html[data-theme='dark']) .eyebrow,

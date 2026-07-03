@@ -366,45 +366,6 @@ def materialize_category_image(category_id: str, image_source: str | None) -> st
     return normalized
 
 
-def materialize_product_images(product_id: str, image_sources: list[str]) -> list[str]:
-    normalized_sources = unique_media_references(image_sources)
-    if not normalized_sources:
-        return []
-
-    stored_paths: list[str] = []
-    remote_index = 0
-    remote_failures = 0
-    for source in normalized_sources:
-        if is_remote_media_url(source):
-            remote_index += 1
-            try:
-                stored_paths.append(
-                    download_remote_media("products", product_id, source, prefix=f"image-{remote_index}")
-                )
-            except (TimeoutError, socket.timeout, OSError, ValueError) as exc:
-                remote_failures += 1
-                logger.warning(
-                    "Failed to download product image %s for %s: %s",
-                    source,
-                    product_id,
-                    exc,
-                )
-            continue
-        stored_paths.append(source)
-
-    if not stored_paths:
-        if remote_failures:
-            logger.warning(
-                "Skipped all remote images for product %s after %s failures",
-                product_id,
-                remote_failures,
-            )
-        return []
-
-    remove_product_media(product_id)
-    return stored_paths
-
-
 def normalize_cell_text(value) -> str:
     if value is None:
         return ""

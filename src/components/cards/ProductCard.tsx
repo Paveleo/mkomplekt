@@ -23,12 +23,14 @@ function formatMeta(item: Item) {
 
 export default function ProductCard({ item }: { item: Item }) {
   const cover = item.images?.[0]?.url;
+  const colorPreview = item.images?.[1]?.url;
   const meta = formatMeta(item);
 
   return (
     <Link to={`/products/${item.slug}`} className={s.card}>
       <div className={s.thumb}>
-        {cover ? <img src={cover} alt={item.title}/> : <div style={{opacity:.6}}>Нет фото</div>}
+        {cover ? <img className={s.coverImage} src={cover} alt={item.title}/> : <div style={{opacity:.6}}>Нет фото</div>}
+        {colorPreview ? <img className={s.colorPreview} src={colorPreview} alt={`${item.title} цвет`}/> : null}
       </div>
       <div className={s.title}>{item.title}</div>
       {meta ? <div className={s.meta}>{meta}</div> : null}

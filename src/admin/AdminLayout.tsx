@@ -5,7 +5,6 @@ import {
   CatalogIcon,
   DashboardIcon,
   FolderIcon,
-  ImageIcon,
   ImportIcon,
   LogoutIcon,
   OrdersIcon,
@@ -32,7 +31,6 @@ const links: AdminNavLink[] = [
   { to: '/admin/reviews', label: 'Отзывы', description: 'Отзывы и порядок', icon: ReviewIcon },
   { to: '/admin/works', label: 'Наши работы', description: 'Портфолио', icon: WorksIcon },
   { to: '/admin/import', label: 'Импорт Excel', description: 'Массовая загрузка', icon: ImportIcon },
-  { to: '/admin/media-import', label: 'Фото', description: 'Автопарсинг', icon: ImageIcon },
 ]
 
 export default function AdminLayout() {

@@ -6,7 +6,7 @@ import s from './AppShell.module.css'
 
 export default function App() {
   return (
-    <div className={s.shell}>
+    <div className={`${s.shell} siteShell`}>
       <ScrollManager />
       <Header />
       <main className={s.main}>

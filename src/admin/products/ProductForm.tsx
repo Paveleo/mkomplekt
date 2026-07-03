@@ -30,6 +30,20 @@ type ProductImage = {
   sort: number
 }
 
+type GalleryItem =
+  | {
+      kind: 'existing'
+      key: string
+      image: ProductImage
+      previewUrl: string
+    }
+  | {
+      kind: 'new'
+      key: string
+      file: File
+      previewUrl: string
+    }
+
 type ProductResponse = {
   id: string
   title: string
@@ -60,6 +74,17 @@ const defaultValues: FormValues = {
   is_published: true,
 }
 
+const MAX_PRODUCT_GALLERY_IMAGES = 3
+const PRODUCT_GALLERY_ROLES = [
+  'Общий вид товара',
+  'Цвет товара',
+  'Инструкция',
+]
+
+function getGalleryRole(index: number) {
+  return PRODUCT_GALLERY_ROLES[index] ?? `Фото ${index + 1}`
+}
+
 type ProductFormProps = {
   productId?: string
   mode?: 'page' | 'modal'
@@ -79,6 +104,7 @@ export default function ProductForm({
   const queryClient = useQueryClient()
   const isModal = mode === 'modal'
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const previewUrlsRef = useRef<string[]>([])
   const {
     register,
     handleSubmit,
@@ -94,6 +120,7 @@ export default function ProductForm({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [fileInputKey, setFileInputKey] = useState(0)
+  const [draggedGalleryIndex, setDraggedGalleryIndex] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [isLoadingProduct, setIsLoadingProduct] = useState(Boolean(id))
@@ -163,10 +190,14 @@ export default function ProductForm({
   }, [id, reset])
 
   useEffect(() => {
-    return () => {
-      previewUrls.forEach((url) => URL.revokeObjectURL(url))
-    }
+    previewUrlsRef.current = previewUrls
   }, [previewUrls])
+
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+    }
+  }, [])
 
   const title = watch('title') || ''
   const categoryId = watch('category_id') || ''
@@ -178,6 +209,21 @@ export default function ProductForm({
   const material = watch('material') || ''
   const isPublished = Boolean(watch('is_published'))
   const isFormLocked = isLoadingProduct || isSubmitting
+  const galleryItems: GalleryItem[] = [
+    ...existingImages.map((image) => ({
+      kind: 'existing' as const,
+      key: `existing-${image.id}`,
+      image,
+      previewUrl: image.url,
+    })),
+    ...selectedFiles.map((file, index) => ({
+      kind: 'new' as const,
+      key: `new-${previewUrls[index] || file.name}-${index}`,
+      file,
+      previewUrl: previewUrls[index] || '',
+    })),
+  ]
+  const galleryCount = galleryItems.length
 
   const syncPreviewUrls = (files: File[]) => {
     setPreviewUrls((current) => {
@@ -196,8 +242,20 @@ export default function ProductForm({
       return
     }
 
+    const freeSlots = MAX_PRODUCT_GALLERY_IMAGES - galleryCount
+    if (freeSlots <= 0) {
+      setError(`В галерее товара можно оставить максимум ${MAX_PRODUCT_GALLERY_IMAGES} фото.`)
+      setFileInputKey((current) => current + 1)
+      return
+    }
+
+    const acceptedFiles = nextFiles.slice(0, freeSlots)
+    if (acceptedFiles.length < nextFiles.length) {
+      setNotice(`Добавлено ${acceptedFiles.length} фото. Лимит галереи — ${MAX_PRODUCT_GALLERY_IMAGES} изображения.`)
+    }
+
     setSelectedFiles((current) => {
-      const mergedFiles = [...current, ...nextFiles]
+      const mergedFiles = [...current, ...acceptedFiles]
       syncPreviewUrls(mergedFiles)
       return mergedFiles
     })
@@ -217,9 +275,49 @@ export default function ProductForm({
     setExistingImages((current) => current.filter((image) => image.id !== imageId))
   }
 
+  const applyGalleryOrder = (items: GalleryItem[]) => {
+    const nextExistingImages: ProductImage[] = []
+    const nextSelectedFiles: File[] = []
+    const nextPreviewUrls: string[] = []
+
+    items.forEach((item) => {
+      if (item.kind === 'existing') {
+        nextExistingImages.push(item.image)
+        return
+      }
+
+      nextSelectedFiles.push(item.file)
+      nextPreviewUrls.push(item.previewUrl)
+    })
+
+    setExistingImages(nextExistingImages)
+    setSelectedFiles(nextSelectedFiles)
+    setPreviewUrls(nextPreviewUrls)
+  }
+
+  const moveGalleryItem = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) {
+      return
+    }
+
+    const nextItems = [...galleryItems]
+    const [movedItem] = nextItems.splice(fromIndex, 1)
+    if (!movedItem) {
+      return
+    }
+
+    nextItems.splice(toIndex, 0, movedItem)
+    applyGalleryOrder(nextItems)
+  }
+
   const onSubmit = async (values: FormValues) => {
     setError('')
     setNotice('')
+
+    if (galleryCount > MAX_PRODUCT_GALLERY_IMAGES) {
+      setError(`В галерее товара можно сохранить максимум ${MAX_PRODUCT_GALLERY_IMAGES} фото.`)
+      return
+    }
 
     if (!values.category_id) {
       setError('Выберите категорию товара.')
@@ -278,7 +376,6 @@ export default function ProductForm({
   }
 
   const activeCategory = categories.find((item) => item.id === categoryId)?.title
-  const galleryCount = existingImages.length + selectedFiles.length
   const closeForm = () => {
     if (isFormLocked) {
       return
@@ -466,6 +563,14 @@ export default function ProductForm({
                 оставить частично, удалить или дополнить новыми.
               </p>
 
+              <div className={styles.galleryHelp}>
+                <strong>Максимум 3 фото в галерее.</strong>
+                <span>1 фото — общий вид товара.</span>
+                <span>2 фото — цвет товара, оно показывается поверх основной картинки в карточке.</span>
+                <span>3 фото — инструкция, если она есть.</span>
+                <span>Порядок можно менять перетаскиванием карточек ниже.</span>
+              </div>
+
               <div className={styles.dropzone}>
                 <label className={styles.fieldWide}>
                   <span className={styles.fieldLabel}>Новые фотографии</span>
@@ -475,11 +580,12 @@ export default function ProductForm({
                     className={styles.input}
                     type="file"
                     multiple
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={galleryCount >= MAX_PRODUCT_GALLERY_IMAGES}
                     onChange={(event) => handleFilesSelected(event.target.files)}
                   />
                   <span className={styles.fieldHint}>
-                    Можно выбрать несколько файлов сразу, а потом ещё раз нажать выбор и добавить следующую пачку.
+                    Выберите до {MAX_PRODUCT_GALLERY_IMAGES} изображений. Сейчас занято: {galleryCount} из {MAX_PRODUCT_GALLERY_IMAGES}.
                   </span>
                 </label>
 
@@ -490,50 +596,49 @@ export default function ProductForm({
                 ) : null}
               </div>
 
-              {existingImages.length > 0 ? (
+              {galleryItems.length > 0 ? (
                 <div className={styles.formStack}>
                   <div className={styles.inlineNotice}>
-                    Текущих изображений: <strong>{existingImages.length}</strong>
+                    Фото в галерее: <strong>{galleryCount}</strong>. Перетащите карточки, чтобы изменить роли фото.
                   </div>
 
-                  <div className={styles.previewGrid}>
-                    {existingImages.map((image, index) => (
-                      <div key={image.id} className={styles.previewCard}>
-                        <img className={styles.previewImage} src={image.url} alt={`existing-${index + 1}`} />
-                        <div className={styles.previewInfo}>Текущее фото #{index + 1}</div>
-                        <div style={{ padding: '0 12px 12px' }}>
+                  <div className={`${styles.previewGrid} ${styles.gallerySortableGrid}`}>
+                    {galleryItems.map((item, index) => (
+                      <div
+                        key={item.key}
+                        className={`${styles.previewCard} ${styles.gallerySortableCard} ${
+                          draggedGalleryIndex === index ? styles.gallerySortableCardDragging : ''
+                        }`}
+                        draggable={!isFormLocked}
+                        onDragStart={() => setDraggedGalleryIndex(index)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => {
+                          if (draggedGalleryIndex !== null) {
+                            moveGalleryItem(draggedGalleryIndex, index)
+                          }
+                          setDraggedGalleryIndex(null)
+                        }}
+                        onDragEnd={() => setDraggedGalleryIndex(null)}
+                      >
+                        <div className={styles.galleryImageWrap}>
+                          <img className={styles.previewImage} src={item.previewUrl} alt={`product-${index + 1}`} />
+                          <span className={styles.gallerySlotBadge}>#{index + 1}</span>
+                        </div>
+                        <div className={styles.previewInfo}>
+                          <strong>{getGalleryRole(index)}</strong>
+                          <span>{item.kind === 'new' ? item.file.name : 'Сохраненное фото'}</span>
+                        </div>
+                        <div className={styles.galleryCardActions}>
                           <button
                             type="button"
                             className={styles.buttonDanger}
-                            onClick={() => removeExistingImage(image.id)}
+                            onClick={() =>
+                              item.kind === 'existing'
+                                ? removeExistingImage(item.image.id)
+                                : removeSelectedFile(selectedFiles.indexOf(item.file))
+                            }
                           >
-                            Удалить из галереи
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-
-              {previewUrls.length > 0 ? (
-                <div className={styles.formStack}>
-                  <div className={styles.inlineNotice}>
-                    К добавлению подготовлено: <strong>{previewUrls.length}</strong>
-                  </div>
-
-                  <div className={styles.previewGrid}>
-                    {previewUrls.map((url, index) => (
-                      <div key={url} className={styles.previewCard}>
-                        <img className={styles.previewImage} src={url} alt={`preview-${index + 1}`} />
-                        <div className={styles.previewInfo}>{selectedFiles[index]?.name || `Файл ${index + 1}`}</div>
-                        <div style={{ padding: '0 12px 12px' }}>
-                          <button
-                            type="button"
-                            className={styles.buttonGhost}
-                            onClick={() => removeSelectedFile(index)}
-                          >
-                            Убрать из загрузки
+                            Удалить
                           </button>
                         </div>
                       </div>

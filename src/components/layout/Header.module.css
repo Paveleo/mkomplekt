@@ -79,7 +79,8 @@
 }
 
 .actionLink,
-.actionPrimary {
+.actionPrimary,
+.themeToggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -95,7 +96,22 @@
     opacity 0.18s ease,
     border-color 0.18s ease,
     box-shadow 0.18s ease,
-    background-color 0.18s ease;
+  background-color 0.18s ease;
+}
+
+.themeToggle {
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  background: #ffffff;
+  color: #111111;
+  cursor: pointer;
+}
+
+.themeIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .actionLink {
@@ -111,6 +127,7 @@
 }
 
 .actionLink:hover,
+.themeToggle:hover,
 .actionPrimary:hover {
   transform: translateY(-1px);
 }
@@ -239,7 +256,8 @@
   }
 
   .mobileActions .actionLink,
-  .mobileActions .actionPrimary {
+  .mobileActions .actionPrimary,
+  .mobileActions .themeToggle {
     width: 100%;
   }
 

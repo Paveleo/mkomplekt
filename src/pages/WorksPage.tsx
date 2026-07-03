@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useWorks } from '@/hooks/useWorks'
+import { type WorkItem, useWorks } from '@/hooks/useWorks'
 import s from './WorksPage.module.css'
 
 function trimText(value: string, fallback: string) {
@@ -12,6 +13,22 @@ function trimText(value: string, fallback: string) {
 
 export default function WorksPage() {
   const { data = [], isLoading, isError } = useWorks()
+  const [activeWork, setActiveWork] = useState<WorkItem | null>(null)
+
+  useEffect(() => {
+    if (!activeWork) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveWork(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [activeWork])
 
   return (
     <section className={s.wrap}>
@@ -31,7 +48,7 @@ export default function WorksPage() {
             Раздел обновляется из админки. Можно добавлять работы вручную или подтягивать фото из Instagram
             и публиковать только проверенные карточки.
           </p>
-          <Link className={s.instagramLink} to="/contacts">
+          <Link className={s.heroLink} to="/contacts">
             Обсудить проект
           </Link>
         </div>
@@ -56,13 +73,8 @@ export default function WorksPage() {
         {data.length > 0 ? (
           <div className={s.grid}>
             {data.map((item, index) => {
-              const CardTag = item.source_url ? 'a' : 'article'
-              const cardProps = item.source_url
-                ? { href: item.source_url, target: '_blank', rel: 'noreferrer' }
-                : {}
-
               return (
-                <CardTag key={item.id} className={s.card} {...cardProps}>
+                <button key={item.id} type="button" className={s.card} onClick={() => setActiveWork(item)}>
                   <div className={s.media}>
                     {item.image_url ? (
                       <img src={item.image_url} alt={item.title} />
@@ -77,12 +89,42 @@ export default function WorksPage() {
                     <h2>{item.title}</h2>
                     <p>{trimText(item.caption, 'Подробности проекта можно уточнить у менеджера.')}</p>
                   </div>
-                </CardTag>
+                </button>
               )
             })}
           </div>
         ) : null}
       </div>
+
+      {activeWork ? (
+        <div
+          className={s.modalOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeWork.title}
+          onClick={() => setActiveWork(null)}
+        >
+          <div className={s.modalCard} onClick={(event) => event.stopPropagation()}>
+            <button type="button" className={s.modalClose} onClick={() => setActiveWork(null)} aria-label="Закрыть">
+              ×
+            </button>
+
+            <div className={s.modalMedia}>
+              {activeWork.image_url ? (
+                <img src={activeWork.image_url} alt={activeWork.title} />
+              ) : (
+                <div className={s.mediaFallback}>Фото проекта</div>
+              )}
+            </div>
+
+            <div className={s.modalBody}>
+              <span className={s.typeInline}>Проект</span>
+              <h2>{activeWork.title}</h2>
+              <p>{activeWork.caption || 'Подробности проекта можно уточнить у менеджера.'}</p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

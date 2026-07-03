@@ -696,6 +696,84 @@
   font-size: 12px;
 }
 
+.previewInfo strong,
+.previewInfo span {
+  display: block;
+}
+
+.previewInfo strong {
+  margin-bottom: 4px;
+  color: var(--admin-ink);
+  font-size: 13px;
+}
+
+.galleryHelp {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(139, 94, 60, 0.18);
+  border-radius: 18px;
+  background: rgba(250, 246, 240, 0.72);
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.galleryHelp strong {
+  color: var(--admin-ink);
+}
+
+.gallerySortableGrid {
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+}
+
+.gallerySortableCard {
+  cursor: grab;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.gallerySortableCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(139, 94, 60, 0.28);
+  box-shadow: 0 16px 28px rgba(67, 49, 34, 0.08);
+}
+
+.gallerySortableCardDragging {
+  cursor: grabbing;
+  opacity: 0.58;
+  transform: scale(0.98);
+}
+
+.galleryImageWrap {
+  position: relative;
+}
+
+.gallerySlotBadge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 18px rgba(67, 49, 34, 0.14);
+  color: var(--admin-accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.galleryCardActions {
+  padding: 0 12px 12px;
+}
+
 .dropzone {
   display: grid;
   gap: 12px;

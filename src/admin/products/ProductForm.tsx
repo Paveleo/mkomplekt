@@ -410,6 +410,20 @@ export default function ProductForm({
       formData.set('description', values.description || '')
       formData.set('is_published', values.is_published ? 'true' : 'false')
 
+      galleryItems.forEach((item) => {
+        if (item.kind === 'existing') {
+          formData.append('gallery_order', `existing:${item.image.id}`)
+          return
+        }
+
+        if (item.kind === 'new') {
+          formData.append('gallery_order', `new:${selectedFiles.indexOf(item.file)}`)
+          return
+        }
+
+        formData.append('gallery_order', `remote:${remoteImageUrls.indexOf(item.url)}`)
+      })
+
       existingImages.forEach((image) => {
         formData.append('keep_image_ids', image.id)
       })

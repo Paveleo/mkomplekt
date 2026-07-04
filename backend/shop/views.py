@@ -1814,6 +1814,7 @@ def sync_product_gallery(
     keep_image_ids: list[str] | None,
     uploaded_files: list,
     remote_image_urls: list[str] | None = None,
+    gallery_order: list[str] | None = None,
 ) -> None:
     existing_images = list(product.images.all().order_by("sort", "id"))
     existing_by_id = {str(image.id): image for image in existing_images}
@@ -1842,12 +1843,9 @@ def sync_product_gallery(
     if len(kept_images) + len(uploaded_files) + len(remote_urls) > MAX_PRODUCT_GALLERY_IMAGES:
         raise ValueError("PRODUCT_IMAGE_LIMIT")
 
-    for sort, image in enumerate(kept_images):
-        if image.sort != sort:
-            image.sort = sort
-            image.save(update_fields=["sort"])
-
     created_images: list[ProductImage] = []
+    new_images: list[ProductImage] = []
+    remote_images: list[ProductImage] = []
 
     if uploaded_files:
         appended_paths = append_product_images(
@@ -1855,7 +1853,7 @@ def sync_product_gallery(
             uploaded_files,
             start_sort=len(kept_images),
         )
-        created_images.extend(
+        new_images.extend(
             ProductImage(product=product, image_path=path, sort=len(kept_images) + index)
             for index, path in enumerate(appended_paths)
         )
@@ -1872,7 +1870,37 @@ def sync_product_gallery(
         except (TimeoutError, OSError, ValueError) as exc:
             logger.warning("Failed to download product image %s for %s: %s", remote_url, product.id, exc)
             raise ValueError("REMOTE_PRODUCT_IMAGE_FAILED") from exc
-        created_images.append(ProductImage(product=product, image_path=image_path, sort=remote_start_sort + index))
+        remote_images.append(ProductImage(product=product, image_path=image_path, sort=remote_start_sort + index))
+
+    image_refs: dict[str, ProductImage] = {}
+    for image in kept_images:
+        image_refs[f"existing:{image.id}"] = image
+    for index, image in enumerate(new_images):
+        image_refs[f"new:{index}"] = image
+    for index, image in enumerate(remote_images):
+        image_refs[f"remote:{index}"] = image
+
+    ordered_images: list[ProductImage] = []
+    seen_order_refs: set[str] = set()
+    for ref in gallery_order or []:
+        image = image_refs.get(ref)
+        if image is None or ref in seen_order_refs:
+            continue
+        ordered_images.append(image)
+        seen_order_refs.add(ref)
+
+    if len(ordered_images) != len(image_refs):
+        ordered_ids = {id(image) for image in ordered_images}
+        for image in [*kept_images, *new_images, *remote_images]:
+            if id(image) not in ordered_ids:
+                ordered_images.append(image)
+
+    for sort, image in enumerate(ordered_images):
+        image.sort = sort
+        if image.pk:
+            image.save(update_fields=["sort"])
+        else:
+            created_images.append(image)
 
     if not created_images:
         return
@@ -1923,6 +1951,7 @@ def admin_products_view(request):
 
     images = request.FILES.getlist("images")
     remote_image_urls = [str(value).strip() for value in request.data.getlist("image_urls") if str(value).strip()]
+    gallery_order = [str(value).strip() for value in request.data.getlist("gallery_order") if str(value).strip()]
     if len(images) + len(remote_image_urls) > MAX_PRODUCT_GALLERY_IMAGES:
         return Response({"detail": "PRODUCT_IMAGE_LIMIT"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1934,6 +1963,7 @@ def admin_products_view(request):
                 keep_image_ids=[],
                 uploaded_files=images,
                 remote_image_urls=remote_image_urls,
+                gallery_order=gallery_order,
             )
         except ValueError as exc:
             remove_product_media(str(product.id))
@@ -1968,6 +1998,7 @@ def admin_product_detail_view(request, product_id):
     product.save()
     images = request.FILES.getlist("images")
     remote_image_urls = [str(value).strip() for value in request.data.getlist("image_urls") if str(value).strip()]
+    gallery_order = [str(value).strip() for value in request.data.getlist("gallery_order") if str(value).strip()]
     keep_image_ids_raw = request.data.getlist("keep_image_ids")
     keep_image_ids = [str(value).strip() for value in keep_image_ids_raw if str(value).strip()]
 
@@ -1978,6 +2009,7 @@ def admin_product_detail_view(request, product_id):
                 keep_image_ids=keep_image_ids,
                 uploaded_files=images,
                 remote_image_urls=remote_image_urls,
+                gallery_order=gallery_order,
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

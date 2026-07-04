@@ -128,6 +128,7 @@ export default function ProductForm({
   const [remoteImageInput, setRemoteImageInput] = useState('')
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [fileInputKey, setFileInputKey] = useState(0)
+  const [galleryOrder, setGalleryOrder] = useState<string[]>([])
   const [draggedGalleryIndex, setDraggedGalleryIndex] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -151,6 +152,7 @@ export default function ProductForm({
         setSelectedFiles([])
         setRemoteImageUrls([])
         setRemoteImageInput('')
+        setGalleryOrder([])
         setPreviewUrls((current) => {
           current.forEach((url) => URL.revokeObjectURL(url))
           return []
@@ -181,6 +183,7 @@ export default function ProductForm({
       setSelectedFiles([])
       setRemoteImageUrls([])
       setRemoteImageInput('')
+      setGalleryOrder([])
       setPreviewUrls((current) => {
         current.forEach((url) => URL.revokeObjectURL(url))
         return []
@@ -221,7 +224,7 @@ export default function ProductForm({
   const material = watch('material') || ''
   const isPublished = Boolean(watch('is_published'))
   const isFormLocked = isLoadingProduct || isSubmitting
-  const galleryItems: GalleryItem[] = [
+  const unorderedGalleryItems: GalleryItem[] = [
     ...existingImages.map((image) => ({
       kind: 'existing' as const,
       key: `existing-${image.id}`,
@@ -240,6 +243,13 @@ export default function ProductForm({
       url,
       previewUrl: url,
     })),
+  ]
+  const galleryItemsByKey = new Map(unorderedGalleryItems.map((item) => [item.key, item]))
+  const orderedGalleryKeys = galleryOrder.filter((key) => galleryItemsByKey.has(key))
+  const orderedGalleryKeySet = new Set(orderedGalleryKeys)
+  const galleryItems: GalleryItem[] = [
+    ...orderedGalleryKeys.map((key) => galleryItemsByKey.get(key)).filter((item): item is GalleryItem => Boolean(item)),
+    ...unorderedGalleryItems.filter((item) => !orderedGalleryKeySet.has(item.key)),
   ]
   const galleryCount = galleryItems.length
 
@@ -333,6 +343,8 @@ export default function ProductForm({
     const nextSelectedFiles: File[] = []
     const nextPreviewUrls: string[] = []
     const nextRemoteImageUrls: string[] = []
+
+    setGalleryOrder(items.map((item) => item.key))
 
     items.forEach((item) => {
       if (item.kind === 'existing') {

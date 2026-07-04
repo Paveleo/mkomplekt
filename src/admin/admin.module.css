@@ -783,6 +783,13 @@
   background: rgba(250, 246, 240, 0.88);
 }
 
+.urlAddRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
 .toolbar {
   display: flex;
   justify-content: space-between;
@@ -1483,6 +1490,10 @@
   .toolbarGroup .input,
   .toolbarGroup .select {
     width: 100%;
+  }
+
+  .urlAddRow {
+    grid-template-columns: 1fr;
   }
 
   .selectionRow,

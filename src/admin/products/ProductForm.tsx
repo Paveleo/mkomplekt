@@ -43,6 +43,12 @@ type GalleryItem =
       file: File
       previewUrl: string
     }
+  | {
+      kind: 'remote'
+      key: string
+      url: string
+      previewUrl: string
+    }
 
 type ProductResponse = {
   id: string
@@ -118,6 +124,8 @@ export default function ProductForm({
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [existingImages, setExistingImages] = useState<ProductImage[]>([])
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [remoteImageUrls, setRemoteImageUrls] = useState<string[]>([])
+  const [remoteImageInput, setRemoteImageInput] = useState('')
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [fileInputKey, setFileInputKey] = useState(0)
   const [draggedGalleryIndex, setDraggedGalleryIndex] = useState<number | null>(null)
@@ -141,6 +149,8 @@ export default function ProductForm({
         reset(defaultValues)
         setExistingImages([])
         setSelectedFiles([])
+        setRemoteImageUrls([])
+        setRemoteImageInput('')
         setPreviewUrls((current) => {
           current.forEach((url) => URL.revokeObjectURL(url))
           return []
@@ -169,6 +179,8 @@ export default function ProductForm({
       })
       setExistingImages(product.images || [])
       setSelectedFiles([])
+      setRemoteImageUrls([])
+      setRemoteImageInput('')
       setPreviewUrls((current) => {
         current.forEach((url) => URL.revokeObjectURL(url))
         return []
@@ -221,6 +233,12 @@ export default function ProductForm({
       key: `new-${previewUrls[index] || file.name}-${index}`,
       file,
       previewUrl: previewUrls[index] || '',
+    })),
+    ...remoteImageUrls.map((url, index) => ({
+      kind: 'remote' as const,
+      key: `remote-${url}-${index}`,
+      url,
+      previewUrl: url,
     })),
   ]
   const galleryCount = galleryItems.length
@@ -275,10 +293,46 @@ export default function ProductForm({
     setExistingImages((current) => current.filter((image) => image.id !== imageId))
   }
 
+  const addRemoteImageUrl = () => {
+    if (isFormLocked) {
+      return
+    }
+
+    const nextUrl = remoteImageInput.trim()
+    if (!nextUrl) {
+      return
+    }
+
+    if (!/^https?:\/\/\S+/i.test(nextUrl)) {
+      setError('Введите корректную ссылку на изображение: http:// или https://.')
+      return
+    }
+
+    if (galleryCount >= MAX_PRODUCT_GALLERY_IMAGES) {
+      setError(`В галерее товара можно оставить максимум ${MAX_PRODUCT_GALLERY_IMAGES} фото.`)
+      return
+    }
+
+    if (remoteImageUrls.includes(nextUrl)) {
+      setNotice('Эта ссылка уже добавлена в галерею.')
+      setRemoteImageInput('')
+      return
+    }
+
+    setRemoteImageUrls((current) => [...current, nextUrl])
+    setRemoteImageInput('')
+    setError('')
+  }
+
+  const removeRemoteImageUrl = (url: string) => {
+    setRemoteImageUrls((current) => current.filter((item) => item !== url))
+  }
+
   const applyGalleryOrder = (items: GalleryItem[]) => {
     const nextExistingImages: ProductImage[] = []
     const nextSelectedFiles: File[] = []
     const nextPreviewUrls: string[] = []
+    const nextRemoteImageUrls: string[] = []
 
     items.forEach((item) => {
       if (item.kind === 'existing') {
@@ -286,13 +340,19 @@ export default function ProductForm({
         return
       }
 
-      nextSelectedFiles.push(item.file)
-      nextPreviewUrls.push(item.previewUrl)
+      if (item.kind === 'new') {
+        nextSelectedFiles.push(item.file)
+        nextPreviewUrls.push(item.previewUrl)
+        return
+      }
+
+      nextRemoteImageUrls.push(item.url)
     })
 
     setExistingImages(nextExistingImages)
     setSelectedFiles(nextSelectedFiles)
     setPreviewUrls(nextPreviewUrls)
+    setRemoteImageUrls(nextRemoteImageUrls)
   }
 
   const moveGalleryItem = (fromIndex: number, toIndex: number) => {
@@ -344,6 +404,10 @@ export default function ProductForm({
 
       selectedFiles.forEach((file) => {
         formData.append('images', file)
+      })
+
+      remoteImageUrls.forEach((url) => {
+        formData.append('image_urls', url)
       })
 
       if (id) {
@@ -594,6 +658,37 @@ export default function ProductForm({
                     Новых файлов выбрано: <strong>{selectedFiles.length}</strong>
                   </div>
                 ) : null}
+
+                <div className={styles.urlAddRow}>
+                  <label className={styles.fieldWide}>
+                    <span className={styles.fieldLabel}>Добавить фото по URL</span>
+                    <input
+                      className={styles.input}
+                      type="url"
+                      placeholder="https://example.com/image.jpg"
+                      value={remoteImageInput}
+                      disabled={galleryCount >= MAX_PRODUCT_GALLERY_IMAGES}
+                      onChange={(event) => setRemoteImageInput(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          addRemoteImageUrl()
+                        }
+                      }}
+                    />
+                    <span className={styles.fieldHint}>
+                      Вставьте прямую ссылку на JPG, PNG или WEBP. Сервер скачает файл и сохранит его в галерею товара.
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    className={styles.buttonSecondary}
+                    onClick={addRemoteImageUrl}
+                    disabled={galleryCount >= MAX_PRODUCT_GALLERY_IMAGES || !remoteImageInput.trim()}
+                  >
+                    Добавить URL
+                  </button>
+                </div>
               </div>
 
               {galleryItems.length > 0 ? (
@@ -626,7 +721,13 @@ export default function ProductForm({
                         </div>
                         <div className={styles.previewInfo}>
                           <strong>{getGalleryRole(index)}</strong>
-                          <span>{item.kind === 'new' ? item.file.name : 'Сохраненное фото'}</span>
+                          <span>
+                            {item.kind === 'new'
+                              ? item.file.name
+                              : item.kind === 'remote'
+                                ? 'Фото по URL'
+                                : 'Сохраненное фото'}
+                          </span>
                         </div>
                         <div className={styles.galleryCardActions}>
                           <button
@@ -635,7 +736,9 @@ export default function ProductForm({
                             onClick={() =>
                               item.kind === 'existing'
                                 ? removeExistingImage(item.image.id)
-                                : removeSelectedFile(selectedFiles.indexOf(item.file))
+                                : item.kind === 'remote'
+                                  ? removeRemoteImageUrl(item.url)
+                                  : removeSelectedFile(selectedFiles.indexOf(item.file))
                             }
                           >
                             Удалить

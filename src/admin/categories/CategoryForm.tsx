@@ -57,6 +57,12 @@ export default function CategoryForm({
 
   const title = watch('title') || '';
   const manualSlug = watch('slug') || '';
+  const imageUrl = watch('image_url') || '';
+  const previewImageUrl = imageUrl
+    ? imageUrl.startsWith('http://') || imageUrl.startsWith('https://') || imageUrl.startsWith('/')
+      ? imageUrl
+      : `/media/${imageUrl.replace(/^\/+/, '')}`
+    : '';
 
   const onSubmit = async (values: Form) => {
     const trimmedTitle = (values.title ?? '').trim();
@@ -140,8 +146,16 @@ export default function CategoryForm({
           </label>
 
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>Изображение</span>
-            <input className={styles.input} placeholder="Ссылка на изображение" {...register('image_url')} />
+            <span className={styles.fieldLabel}>URL изображения</span>
+            <input
+              className={styles.input}
+              type="url"
+              placeholder="https://example.com/category.jpg"
+              {...register('image_url')}
+            />
+            <span className={styles.fieldHint}>
+              Вставьте прямую ссылку на JPG, PNG или WEBP. После сохранения backend скачает картинку в media категории.
+            </span>
           </label>
 
           <label className={styles.field}>
@@ -152,6 +166,16 @@ export default function CategoryForm({
             </span>
           </label>
         </div>
+
+        {previewImageUrl ? (
+          <div className={styles.previewCard}>
+            <img className={styles.previewImage} src={previewImageUrl} alt={title || 'category'} />
+            <div className={styles.previewInfo}>
+              <strong>Предпросмотр изображения</strong>
+              <span>Если ссылка открывается как картинка, после сохранения она станет изображением категории.</span>
+            </div>
+          </div>
+        ) : null}
 
         <div className={styles.actions}>
           <button className={styles.buttonPrimary}>{editing ? 'Сохранить категорию' : 'Добавить категорию'}</button>

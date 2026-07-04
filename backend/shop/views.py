@@ -51,6 +51,7 @@ from .utils import (
     parse_catalog_excel,
     parse_excel_upload,
     append_product_images,
+    download_remote_media,
     remove_media_directory,
     remove_media_file,
     remove_product_media,
@@ -1812,10 +1813,12 @@ def sync_product_gallery(
     *,
     keep_image_ids: list[str] | None,
     uploaded_files: list,
+    remote_image_urls: list[str] | None = None,
 ) -> None:
     existing_images = list(product.images.all().order_by("sort", "id"))
     existing_by_id = {str(image.id): image for image in existing_images}
     kept_images: list[ProductImage] = []
+    remote_urls = unique_media_references([url for url in (remote_image_urls or []) if str(url).strip()])
 
     if keep_image_ids is None:
         kept_images = existing_images
@@ -1836,7 +1839,7 @@ def sync_product_gallery(
             remove_media_file(image.image_path)
             image.delete()
 
-    if len(kept_images) + len(uploaded_files) > MAX_PRODUCT_GALLERY_IMAGES:
+    if len(kept_images) + len(uploaded_files) + len(remote_urls) > MAX_PRODUCT_GALLERY_IMAGES:
         raise ValueError("PRODUCT_IMAGE_LIMIT")
 
     for sort, image in enumerate(kept_images):
@@ -1844,20 +1847,37 @@ def sync_product_gallery(
             image.sort = sort
             image.save(update_fields=["sort"])
 
-    if not uploaded_files:
-        return
+    created_images: list[ProductImage] = []
 
-    appended_paths = append_product_images(
-        str(product.id),
-        uploaded_files,
-        start_sort=len(kept_images),
-    )
-    ProductImage.objects.bulk_create(
-        [
+    if uploaded_files:
+        appended_paths = append_product_images(
+            str(product.id),
+            uploaded_files,
+            start_sort=len(kept_images),
+        )
+        created_images.extend(
             ProductImage(product=product, image_path=path, sort=len(kept_images) + index)
             for index, path in enumerate(appended_paths)
-        ]
-    )
+        )
+
+    remote_start_sort = len(kept_images) + len(uploaded_files)
+    for index, remote_url in enumerate(remote_urls):
+        try:
+            image_path = download_remote_media(
+                "products",
+                str(product.id),
+                remote_url,
+                prefix=f"image-{remote_start_sort + index + 1}",
+            )
+        except (TimeoutError, OSError, ValueError) as exc:
+            logger.warning("Failed to download product image %s for %s: %s", remote_url, product.id, exc)
+            raise ValueError("REMOTE_PRODUCT_IMAGE_FAILED") from exc
+        created_images.append(ProductImage(product=product, image_path=image_path, sort=remote_start_sort + index))
+
+    if not created_images:
+        return
+
+    ProductImage.objects.bulk_create(created_images)
 
 
 @api_view(["GET", "POST"])
@@ -1902,17 +1922,23 @@ def admin_products_view(request):
         return Response({"detail": detail}, status=status_code)
 
     images = request.FILES.getlist("images")
-    if len(images) > MAX_PRODUCT_GALLERY_IMAGES:
+    remote_image_urls = [str(value).strip() for value in request.data.getlist("image_urls") if str(value).strip()]
+    if len(images) + len(remote_image_urls) > MAX_PRODUCT_GALLERY_IMAGES:
         return Response({"detail": "PRODUCT_IMAGE_LIMIT"}, status=status.HTTP_400_BAD_REQUEST)
 
     product.save()
-    if images:
-        ProductImage.objects.bulk_create(
-            [
-                ProductImage(product=product, image_path=path, sort=index)
-                for index, path in enumerate(append_product_images(str(product.id), images))
-            ]
-        )
+    if images or remote_image_urls:
+        try:
+            sync_product_gallery(
+                product,
+                keep_image_ids=[],
+                uploaded_files=images,
+                remote_image_urls=remote_image_urls,
+            )
+        except ValueError as exc:
+            remove_product_media(str(product.id))
+            product.delete()
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     product.refresh_from_db()
     return Response(serialize_product(request, product))
 
@@ -1941,15 +1967,17 @@ def admin_product_detail_view(request, product_id):
 
     product.save()
     images = request.FILES.getlist("images")
+    remote_image_urls = [str(value).strip() for value in request.data.getlist("image_urls") if str(value).strip()]
     keep_image_ids_raw = request.data.getlist("keep_image_ids")
     keep_image_ids = [str(value).strip() for value in keep_image_ids_raw if str(value).strip()]
 
-    if keep_image_ids_raw or images:
+    if keep_image_ids_raw or images or remote_image_urls:
         try:
             sync_product_gallery(
                 product,
                 keep_image_ids=keep_image_ids,
                 uploaded_files=images,
+                remote_image_urls=remote_image_urls,
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

@@ -59,15 +59,25 @@ function formatPrice(value: number | null | undefined) {
 function CategoryTree({
   activeCategoryId,
   categoriesByParent,
+  dragOverCategoryId,
+  canDropProduct,
   level = 0,
   parentId = null,
   onSelect,
+  onMoveProductToCategory,
+  onDragOverCategory,
+  onDragLeaveCategory,
 }: {
   activeCategoryId: string
   categoriesByParent: Map<string, CategoryOption[]>
+  dragOverCategoryId: string
+  canDropProduct: boolean
   level?: number
   parentId?: string | null
   onSelect: (categoryId: string) => void
+  onMoveProductToCategory: (categoryId: string) => void
+  onDragOverCategory: (categoryId: string) => void
+  onDragLeaveCategory: (categoryId: string) => void
 }) {
   const rows = categoriesByParent.get(categoryParentKey(parentId)) || []
 
@@ -81,9 +91,35 @@ function CategoryTree({
         <div key={category.id}>
           <button
             type="button"
-            className={category.id === activeCategoryId ? styles.folderButtonActive : styles.folderButton}
+            className={[
+              category.id === activeCategoryId ? styles.folderButtonActive : styles.folderButton,
+              canDropProduct && dragOverCategoryId === category.id ? styles.folderButtonDropTarget : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             style={{ paddingLeft: 14 + level * 16 }}
             onClick={() => onSelect(category.id)}
+            onDragEnter={() => {
+              if (canDropProduct) {
+                onDragOverCategory(category.id)
+              }
+            }}
+            onDragOver={(event) => {
+              if (!canDropProduct) {
+                return
+              }
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+              onDragOverCategory(category.id)
+            }}
+            onDragLeave={() => onDragLeaveCategory(category.id)}
+            onDrop={(event) => {
+              if (!canDropProduct) {
+                return
+              }
+              event.preventDefault()
+              onMoveProductToCategory(category.id)
+            }}
           >
             <FolderIcon className={styles.iconSvg} />
             <span>{category.title}</span>
@@ -92,9 +128,14 @@ function CategoryTree({
           <CategoryTree
             activeCategoryId={activeCategoryId}
             categoriesByParent={categoriesByParent}
+            dragOverCategoryId={dragOverCategoryId}
+            canDropProduct={canDropProduct}
             level={level + 1}
             parentId={category.id}
             onSelect={onSelect}
+            onMoveProductToCategory={onMoveProductToCategory}
+            onDragOverCategory={onDragOverCategory}
+            onDragLeaveCategory={onDragLeaveCategory}
           />
         </div>
       ))}
@@ -117,6 +158,9 @@ export default function ProductsPage() {
   const [bulkImageInputKey, setBulkImageInputKey] = useState(0)
   const [isBulkSaving, setIsBulkSaving] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [draggedProductId, setDraggedProductId] = useState('')
+  const [dragOverCategoryId, setDragOverCategoryId] = useState('')
+  const [isMovingProduct, setIsMovingProduct] = useState(false)
 
   const catsQ = useQuery({
     queryKey: ['categories-for-products'],
@@ -196,6 +240,7 @@ export default function ProductsPage() {
     () => rows.filter((row) => selectedIds.includes(row.id)),
     [rows, selectedIds],
   )
+  const canDropProduct = Boolean(draggedProductId) && !isMovingProduct
 
   const publishedCount = useMemo(
     () => rows.filter((row) => row.is_published).length,
@@ -295,11 +340,11 @@ export default function ProductsPage() {
     setBulkImageInputKey((current) => current + 1)
   }
 
-  const buildProductUpdateFormData = (product: AdminProduct) => {
+  const buildProductBaseFormData = (product: AdminProduct, categoryId = product.category_id) => {
     const formData = new FormData()
     formData.set('title', product.title)
     formData.set('sku', product.sku || '')
-    formData.set('category_id', product.category_id)
+    formData.set('category_id', categoryId)
     formData.set('price', toFormValue(product.price))
     formData.set('size', product.size || '')
     formData.set('thickness', toFormValue(product.thickness))
@@ -308,6 +353,11 @@ export default function ProductsPage() {
     formData.set('material', product.material || '')
     formData.set('description', product.description || '')
     formData.set('is_published', product.is_published ? 'true' : 'false')
+    return formData
+  }
+
+  const buildProductUpdateFormData = (product: AdminProduct) => {
+    const formData = buildProductBaseFormData(product)
 
     if (bulkImageMode === 'replace') {
       bulkImageFiles.forEach((file) => {
@@ -379,6 +429,72 @@ export default function ProductsPage() {
     }
   }
 
+  const moveDraggedProductToCategory = async (targetCategoryId: string) => {
+    if (!draggedProductId || isMovingProduct) {
+      return
+    }
+
+    const product = rows.find((row) => row.id === draggedProductId)
+    const targetCategory = categoryMap.get(targetCategoryId)
+    if (!product || !targetCategory) {
+      setDraggedProductId('')
+      setDragOverCategoryId('')
+      return
+    }
+
+    const productsToMove = selectedIds.includes(product.id) && selectedRows.length > 0 ? selectedRows : [product]
+    const productsToUpdate = productsToMove.filter((row) => row.category_id !== targetCategoryId)
+
+    if (productsToUpdate.length === 0) {
+      setDraggedProductId('')
+      setDragOverCategoryId('')
+      return
+    }
+
+    setIsMovingProduct(true)
+    try {
+      for (const item of productsToUpdate) {
+        await apiRequest(`/api/admin/products/${item.id}`, {
+          method: 'PUT',
+          body: buildProductBaseFormData(item, targetCategoryId),
+        })
+      }
+
+      const movedIds = new Set(productsToUpdate.map((row) => row.id))
+
+      setRows((current) =>
+        activeCategoryId && activeCategoryId !== targetCategoryId
+          ? current.filter((row) => !movedIds.has(row.id))
+          : current.map((row) =>
+              movedIds.has(row.id)
+                ? {
+                    ...row,
+                    category_id: targetCategoryId,
+                    category_title: targetCategory.title,
+                  }
+                : row,
+            ),
+      )
+      setSelectedIds((current) => current.filter((id) => !movedIds.has(id)))
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products-admin'] }),
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['product'] }),
+      ])
+    } catch (error: any) {
+      alert(error.message || 'Не удалось перенести товар в папку')
+    } finally {
+      setIsMovingProduct(false)
+      setDraggedProductId('')
+      setDragOverCategoryId('')
+    }
+  }
+
+  const handleCategoryDragLeave = (categoryId: string) => {
+    setDragOverCategoryId((current) => (current === categoryId ? '' : current))
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
@@ -421,7 +537,12 @@ export default function ProductsPage() {
           <CategoryTree
             activeCategoryId={activeCategoryId}
             categoriesByParent={categoriesByParent}
+            dragOverCategoryId={dragOverCategoryId}
+            canDropProduct={canDropProduct}
             onSelect={setActiveCategoryId}
+            onMoveProductToCategory={moveDraggedProductToCategory}
+            onDragOverCategory={setDragOverCategoryId}
+            onDragLeaveCategory={handleCategoryDragLeave}
           />
         </aside>
 
@@ -490,9 +611,35 @@ export default function ProductsPage() {
               {childCategories.map((category) => (
                 <button
                   type="button"
-                  className={styles.folderCard}
+                  className={[
+                    styles.folderCard,
+                    canDropProduct && dragOverCategoryId === category.id ? styles.folderCardDropTarget : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   key={category.id}
                   onClick={() => setActiveCategoryId(category.id)}
+                  onDragEnter={() => {
+                    if (canDropProduct) {
+                      setDragOverCategoryId(category.id)
+                    }
+                  }}
+                  onDragOver={(event) => {
+                    if (!canDropProduct) {
+                      return
+                    }
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    setDragOverCategoryId(category.id)
+                  }}
+                  onDragLeave={() => handleCategoryDragLeave(category.id)}
+                  onDrop={(event) => {
+                    if (!canDropProduct) {
+                      return
+                    }
+                    event.preventDefault()
+                    moveDraggedProductToCategory(category.id)
+                  }}
                 >
                   <FolderIcon className={styles.iconSvgLarge} />
                   <span className={styles.folderCardTitle}>{category.title}</span>
@@ -725,7 +872,25 @@ export default function ProductsPage() {
           {!q.isLoading && !q.isError && rows.length > 0 ? (
             <div className={styles.productGrid}>
               {rows.map((product, index) => (
-                <article key={product.id} className={styles.productAdminCard}>
+                <article
+                  key={product.id}
+                  className={[
+                    styles.productAdminCard,
+                    draggedProductId === product.id ? styles.productAdminCardDragging : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  draggable={!isMovingProduct}
+                  onDragStart={(event) => {
+                    setDraggedProductId(product.id)
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', product.id)
+                  }}
+                  onDragEnd={() => {
+                    setDraggedProductId('')
+                    setDragOverCategoryId('')
+                  }}
+                >
                   <div className={styles.productCardHeader}>
                     <label className={styles.selectAllBox}>
                       <input

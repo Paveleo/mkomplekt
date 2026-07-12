@@ -31,6 +31,7 @@ urlpatterns = [
     path("admin/categories/<uuid:category_id>", views.admin_category_detail_view),
     path("admin/products", views.admin_products_view),
     path("admin/products/order", views.admin_products_order_view),
+    path("admin/products/<uuid:product_id>/category", views.admin_product_category_view),
     path("admin/products/<uuid:product_id>", views.admin_product_detail_view),
     path("admin/reviews", views.admin_reviews_view),
     path("admin/reviews/import-2gis", views.admin_reviews_import_2gis_view),

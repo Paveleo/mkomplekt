@@ -454,9 +454,9 @@ export default function ProductsPage() {
     setIsMovingProduct(true)
     try {
       for (const item of productsToUpdate) {
-        await apiRequest(`/api/admin/products/${item.id}`, {
-          method: 'PUT',
-          body: buildProductBaseFormData(item, targetCategoryId),
+        await apiRequest(`/api/admin/products/${item.id}/category`, {
+          method: 'PATCH',
+          body: JSON.stringify({ category_id: targetCategoryId }),
         })
       }
 

@@ -2018,6 +2018,26 @@ def admin_product_detail_view(request, product_id):
     return Response(serialize_product(request, product))
 
 
+@api_view(["PATCH"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+def admin_product_category_view(request, product_id):
+    product = get_object_or_404(Product.objects.select_related("category").prefetch_related("images"), pk=product_id)
+    category_id = str(request.data.get("category_id") or "").strip()
+    if not category_id:
+        return Response({"detail": "CATEGORY_REQUIRED"}, status=status.HTTP_400_BAD_REQUEST)
+
+    category = Category.objects.filter(pk=category_id).first()
+    if not category:
+        return Response({"detail": "CATEGORY_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+
+    if product.category_id != category.id:
+        product.category = category
+        product.save(update_fields=["category", "updated_at"])
+
+    return Response(serialize_product(request, product))
+
+
 @api_view(["PUT"])
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([IsAuthenticated, IsAdminUserCookie])

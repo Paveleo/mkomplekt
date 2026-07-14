@@ -149,12 +149,12 @@ export default function CategoryForm({
             <span className={styles.fieldLabel}>URL изображения</span>
             <input
               className={styles.input}
-              type="url"
-              placeholder="https://example.com/category.jpg"
+              type="text"
+              placeholder="https://example.com/category.jpg или categories/..."
               {...register('image_url')}
             />
             <span className={styles.fieldHint}>
-              Вставьте прямую ссылку на JPG, PNG или WEBP. После сохранения backend скачает картинку в media категории.
+              Можно вставить прямую ссылку на JPG, PNG или WEBP. Если уже стоит путь categories/..., оставьте его без изменений.
             </span>
           </label>
 

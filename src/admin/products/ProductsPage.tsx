@@ -158,6 +158,8 @@ export default function ProductsPage() {
   const [bulkImageInputKey, setBulkImageInputKey] = useState(0)
   const [isBulkSaving, setIsBulkSaving] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkTargetCategoryId, setBulkTargetCategoryId] = useState('')
+  const [isBulkMoving, setIsBulkMoving] = useState(false)
   const [draggedProductId, setDraggedProductId] = useState('')
   const [dragOverCategoryId, setDragOverCategoryId] = useState('')
   const [isMovingProduct, setIsMovingProduct] = useState(false)
@@ -233,6 +235,7 @@ export default function ProductsPage() {
 
     setBulkImageMode('keep')
     setBulkImageFiles([])
+    setBulkTargetCategoryId('')
     setBulkImageInputKey((current) => current + 1)
   }, [selectedIds])
 
@@ -426,6 +429,63 @@ export default function ProductsPage() {
       alert(error.message || 'Не удалось удалить выбранные товары')
     } finally {
       setIsBulkDeleting(false)
+    }
+  }
+
+  const moveSelectedToCategory = async () => {
+    if (!selectedRows.length || !bulkTargetCategoryId) {
+      return
+    }
+
+    const targetCategory = categoryMap.get(bulkTargetCategoryId)
+    if (!targetCategory) {
+      alert('Выберите папку для переноса')
+      return
+    }
+
+    const productsToUpdate = selectedRows.filter((row) => row.category_id !== bulkTargetCategoryId)
+    if (productsToUpdate.length === 0) {
+      alert('Выбранные товары уже находятся в этой папке')
+      return
+    }
+
+    setIsBulkMoving(true)
+    try {
+      for (const product of productsToUpdate) {
+        await apiRequest(`/api/admin/products/${product.id}/category`, {
+          method: 'PATCH',
+          body: JSON.stringify({ category_id: bulkTargetCategoryId }),
+        })
+      }
+
+      const movedIds = new Set(productsToUpdate.map((row) => row.id))
+      setRows((current) =>
+        activeCategoryId && activeCategoryId !== bulkTargetCategoryId
+          ? current.filter((row) => !movedIds.has(row.id))
+          : current.map((row) =>
+              movedIds.has(row.id)
+                ? {
+                    ...row,
+                    category_id: bulkTargetCategoryId,
+                    category_title: targetCategory.title,
+                  }
+                : row,
+            ),
+      )
+      setSelectedIds((current) => current.filter((id) => !movedIds.has(id)))
+      setBulkTargetCategoryId('')
+
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products-admin'] }),
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['product'] }),
+      ])
+
+      alert(`Перенесено товаров: ${productsToUpdate.length}`)
+    } catch (error: any) {
+      alert(error.message || 'Не удалось перенести выбранные товары')
+    } finally {
+      setIsBulkMoving(false)
     }
   }
 
@@ -684,7 +744,7 @@ export default function ProductsPage() {
                     type="button"
                     className={styles.buttonPrimary}
                     onClick={saveSelected}
-                    disabled={isBulkSaving || isBulkDeleting}
+                    disabled={isBulkSaving || isBulkDeleting || isBulkMoving}
                   >
                     {isBulkSaving ? 'Сохраняю...' : 'Сохранить выбранные'}
                   </button>
@@ -692,7 +752,7 @@ export default function ProductsPage() {
                     type="button"
                     className={styles.buttonDanger}
                     onClick={deleteSelected}
-                    disabled={isBulkSaving || isBulkDeleting}
+                    disabled={isBulkSaving || isBulkDeleting || isBulkMoving}
                   >
                     {isBulkDeleting ? 'Удаляю...' : 'Удалить выбранные'}
                   </button>
@@ -700,7 +760,7 @@ export default function ProductsPage() {
                     type="button"
                     className={styles.buttonGhost}
                     onClick={() => setSelectedIds([])}
-                    disabled={isBulkSaving || isBulkDeleting}
+                    disabled={isBulkSaving || isBulkDeleting || isBulkMoving}
                   >
                     Снять выбор
                   </button>
@@ -753,6 +813,43 @@ export default function ProductsPage() {
                     </button>
                   </div>
                 ) : null}
+              </div>
+
+              <div className={styles.formSection}>
+                <h3 className={styles.sectionTitle}>Массовый перенос в папку</h3>
+                <p className={styles.sectionDescription}>
+                  Переносит выбранные товары вместе с привязанными изображениями в другую папку каталога. Сами фото не заменяются.
+                </p>
+
+                <div className={styles.formGrid}>
+                  <label className={styles.fieldWide}>
+                    <span className={styles.fieldLabel}>Папка назначения</span>
+                    <select
+                      className={styles.select}
+                      value={bulkTargetCategoryId}
+                      onChange={(event) => setBulkTargetCategoryId(event.target.value)}
+                    >
+                      <option value="">Выберите папку</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Действие</span>
+                    <button
+                      type="button"
+                      className={styles.buttonPrimary}
+                      onClick={moveSelectedToCategory}
+                      disabled={!bulkTargetCategoryId || isBulkMoving || isBulkSaving || isBulkDeleting}
+                    >
+                      {isBulkMoving ? 'Переношу...' : 'Перенести выбранные'}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className={styles.selectionList}>

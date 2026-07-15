@@ -31,7 +31,9 @@ export default function TwoGisReviews() {
           <div className={s.companyCard}>
             <div className={s.companyMeta}>
               <div className={s.companyName}>{company}</div>
-              <div className={s.companyAddress}>{address}</div>
+              <a className={s.companyAddress} href={cardUrl} target="_blank" rel="noreferrer">
+                {address}
+              </a>
             </div>
 
             <div className={s.stats}>

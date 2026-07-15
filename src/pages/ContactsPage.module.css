@@ -121,6 +121,7 @@
   color: #111111;
   font: 700 clamp(23px, 2vw, 28px) / 1.18 Helvetica, Arial, sans-serif;
   letter-spacing: -0.03em;
+  text-decoration: none;
 }
 
 .link {

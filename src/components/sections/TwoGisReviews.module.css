@@ -67,9 +67,15 @@
 }
 
 .companyAddress {
+  display: inline-block;
   margin-top: 8px;
   color: #6b7280;
   font: 400 15px/1.5 Helvetica, Arial, sans-serif;
+  text-decoration: none;
+}
+
+.companyAddress:hover {
+  text-decoration: underline;
 }
 
 .stats {

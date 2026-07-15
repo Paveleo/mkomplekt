@@ -14,21 +14,26 @@ function trimText(value: string, fallback: string) {
 export default function WorksPage() {
   const { data = [], isLoading, isError } = useWorks()
   const [activeWork, setActiveWork] = useState<WorkItem | null>(null)
+  const [fullscreenImage, setFullscreenImage] = useState<WorkItem | null>(null)
 
   useEffect(() => {
-    if (!activeWork) {
+    if (!activeWork && !fullscreenImage) {
       return
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (fullscreenImage) {
+          setFullscreenImage(null)
+          return
+        }
         setActiveWork(null)
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [activeWork])
+  }, [activeWork, fullscreenImage])
 
   return (
     <section className={s.wrap}>
@@ -109,13 +114,18 @@ export default function WorksPage() {
               ×
             </button>
 
-            <div className={s.modalMedia}>
+            <button
+              type="button"
+              className={s.modalMedia}
+              onClick={() => (activeWork.image_url ? setFullscreenImage(activeWork) : undefined)}
+              aria-label="Открыть фото на весь экран"
+            >
               {activeWork.image_url ? (
                 <img src={activeWork.image_url} alt={activeWork.title} />
               ) : (
                 <div className={s.mediaFallback}>Фото проекта</div>
               )}
-            </div>
+            </button>
 
             <div className={s.modalBody}>
               <span className={s.typeInline}>Проект</span>
@@ -123,6 +133,31 @@ export default function WorksPage() {
               <p>{activeWork.caption || 'Подробности проекта можно уточнить у менеджера.'}</p>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {fullscreenImage?.image_url ? (
+        <div
+          className={s.lightboxOverlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={fullscreenImage.title}
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            type="button"
+            className={s.lightboxClose}
+            onClick={() => setFullscreenImage(null)}
+            aria-label="Закрыть"
+          >
+            ×
+          </button>
+          <img
+            className={s.lightboxImage}
+            src={fullscreenImage.image_url}
+            alt={fullscreenImage.title}
+            onClick={(event) => event.stopPropagation()}
+          />
         </div>
       ) : null}
     </section>

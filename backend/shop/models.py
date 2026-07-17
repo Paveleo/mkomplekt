@@ -78,6 +78,7 @@ class Category(models.Model):
         related_name="children",
     )
     image_url = models.TextField(blank=True, null=True)
+    is_visible = models.BooleanField(default=True)
     sort = models.IntegerField(default=0)
 
     class Meta:

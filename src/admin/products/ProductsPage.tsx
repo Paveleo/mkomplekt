@@ -40,6 +40,17 @@ type CategoryOption = {
 
 type BulkImageMode = 'keep' | 'replace' | 'clear'
 
+type BulkAddResponse = {
+  created: number
+  updated: number
+  skipped: number
+  errors: Array<{
+    row: number
+    title?: string
+    detail: string
+  }>
+}
+
 function toFormValue(value: string | number | null | undefined) {
   return value === null || value === undefined ? '' : String(value)
 }
@@ -163,6 +174,12 @@ export default function ProductsPage() {
   const [draggedProductId, setDraggedProductId] = useState('')
   const [dragOverCategoryId, setDragOverCategoryId] = useState('')
   const [isMovingProduct, setIsMovingProduct] = useState(false)
+  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false)
+  const [bulkAddCategoryId, setBulkAddCategoryId] = useState('')
+  const [bulkAddText, setBulkAddText] = useState('')
+  const [bulkAddPublished, setBulkAddPublished] = useState(true)
+  const [isBulkAdding, setIsBulkAdding] = useState(false)
+  const [bulkAddResult, setBulkAddResult] = useState<BulkAddResponse | null>(null)
 
   const catsQ = useQuery({
     queryKey: ['categories-for-products'],
@@ -555,6 +572,59 @@ export default function ProductsPage() {
     setDragOverCategoryId((current) => (current === categoryId ? '' : current))
   }
 
+  const openBulkAdd = () => {
+    setBulkAddCategoryId(activeCategoryId || bulkAddCategoryId)
+    setBulkAddResult(null)
+    setIsBulkAddOpen(true)
+  }
+
+  const closeBulkAdd = () => {
+    if (isBulkAdding) {
+      return
+    }
+    setIsBulkAddOpen(false)
+  }
+
+  const submitBulkAdd = async () => {
+    if (!bulkAddCategoryId) {
+      alert('Выберите папку, куда добавить товары.')
+      return
+    }
+    if (!bulkAddText.trim()) {
+      alert('Вставьте список товаров.')
+      return
+    }
+
+    setIsBulkAdding(true)
+    setBulkAddResult(null)
+    try {
+      const result = await apiRequest<BulkAddResponse>('/api/admin/products/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          category_id: bulkAddCategoryId,
+          text: bulkAddText,
+          is_published: bulkAddPublished,
+        }),
+      })
+
+      setBulkAddResult(result)
+      setActiveCategoryId(bulkAddCategoryId)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products-admin'] }),
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['product'] }),
+      ])
+
+      if (result.skipped === 0) {
+        setBulkAddText('')
+      }
+    } catch (error: any) {
+      alert(error.message || 'Не удалось массово добавить товары')
+    } finally {
+      setIsBulkAdding(false)
+    }
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
@@ -569,6 +639,9 @@ export default function ProductsPage() {
 
         <div className={styles.actions}>
           <Link to="/admin/products/new" className={styles.buttonPrimary}>Новый товар</Link>
+          <button type="button" className={styles.buttonSecondary} onClick={openBulkAdd}>
+            Массово добавить
+          </button>
           <button className={styles.buttonSecondary} onClick={saveOrder} disabled={isReorderLocked}>
             Сохранить порядок
           </button>
@@ -1069,6 +1142,131 @@ export default function ProductsPage() {
           ) : null}
         </main>
       </div>
+
+      {isBulkAddOpen ? (
+        <div className={styles.modalBackdrop} role="presentation" onMouseDown={closeBulkAdd}>
+          <div
+            className={styles.modalPanel}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Массовое добавление товаров"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={styles.modalClose}
+              aria-label="Закрыть"
+              onClick={closeBulkAdd}
+              disabled={isBulkAdding}
+            >
+              ×
+            </button>
+
+            <div className={styles.modalForm}>
+              <div>
+                <p className={styles.eyebrow}>Каталог</p>
+                <h2 className={styles.cardTitle}>Массовое добавление товаров</h2>
+                <p className={styles.cardText}>
+                  Выберите папку и вставьте товары строками. Поддерживаются разделители: табуляция,
+                  точка с запятой или вертикальная черта.
+                </p>
+              </div>
+
+              <div className={styles.formSection}>
+                <div className={styles.formGrid}>
+                  <label className={styles.fieldWide}>
+                    <span className={styles.fieldLabel}>Папка для товаров</span>
+                    <select
+                      className={styles.select}
+                      value={bulkAddCategoryId}
+                      onChange={(event) => setBulkAddCategoryId(event.target.value)}
+                    >
+                      <option value="">Выберите папку</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className={styles.switchRow}>
+                    <input
+                      type="checkbox"
+                      checked={bulkAddPublished}
+                      onChange={(event) => setBulkAddPublished(event.target.checked)}
+                    />
+                    <span className={styles.switchLabel}>
+                      <span className={styles.switchTitle}>Опубликовать сразу</span>
+                      <span className={styles.switchText}>Если выключить, товары будут скрыты.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className={styles.formSection}>
+                <label className={styles.fieldWide}>
+                  <span className={styles.fieldLabel}>Список товаров</span>
+                  <textarea
+                    className={styles.textarea}
+                    value={bulkAddText}
+                    onChange={(event) => setBulkAddText(event.target.value)}
+                    placeholder={[
+                      'ЛДСП Egger F765 Серебристый матовый, 2800*2070*16 | 7000 | шт | 2800*2070 | 16 | Серебристый матовый | F765',
+                      'ЛДСП Egger H1176 Дуб Галифакс белый, 2800*2070*16 | 9450 | шт | 2800*2070 | 16 | Дуб Галифакс белый | H1176',
+                    ].join('\n')}
+                    rows={10}
+                  />
+                  <span className={styles.fieldHint}>
+                    Порядок колонок: название | цена | ед. измерения | размер | толщина | цвет | артикул | материал | описание.
+                    Можно вставлять строки прямо из Excel.
+                  </span>
+                </label>
+              </div>
+
+              {bulkAddResult ? (
+                <div className={styles.successNotice}>
+                  Создано: <strong>{bulkAddResult.created}</strong>. Обновлено:{' '}
+                  <strong>{bulkAddResult.updated}</strong>. Пропущено:{' '}
+                  <strong>{bulkAddResult.skipped}</strong>.
+                  {bulkAddResult.errors.length > 0 ? (
+                    <div className={styles.bulkErrorList}>
+                      {bulkAddResult.errors.slice(0, 8).map((error) => (
+                        <div key={`${error.row}-${error.detail}`}>
+                          Строка {error.row}: {error.title ? `${error.title} - ` : ''}
+                          {error.detail}
+                        </div>
+                      ))}
+                      {bulkAddResult.errors.length > 8 ? (
+                        <div>И ещё ошибок: {bulkAddResult.errors.length - 8}</div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.buttonPrimary}
+                  onClick={submitBulkAdd}
+                  disabled={isBulkAdding}
+                >
+                  {isBulkAdding ? 'Добавляю...' : 'Добавить товары'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.buttonGhost}
+                  onClick={closeBulkAdd}
+                  disabled={isBulkAdding}
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {editingProductId ? (
         <div className={styles.modalBackdrop} role="presentation" onMouseDown={() => setEditingProductId(null)}>

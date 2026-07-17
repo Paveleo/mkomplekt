@@ -22,12 +22,14 @@ type Row = {
   parent_id: string | null
   sort: number | null
   image_url?: string | null
+  is_visible?: boolean
 }
 
 type CategoryOption = {
   id: string
   title: string
   parent_id?: string | null
+  is_visible?: boolean
 }
 
 const ROOT_PARENT = '__root__'
@@ -162,7 +164,28 @@ export default function CategoriesPage() {
     }
   }
 
+  const handleToggleVisibility = async (category: Row) => {
+    const nextVisible = category.is_visible === false
+    setRows((current) =>
+      current.map((row) => (row.id === category.id ? { ...row, is_visible: nextVisible } : row)),
+    )
+
+    try {
+      await apiRequest(`/api/admin/categories/${category.id}/visibility`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_visible: nextVisible }),
+      })
+      await invalidateCatalogQueries()
+    } catch (error: any) {
+      setRows((current) =>
+        current.map((row) => (row.id === category.id ? { ...row, is_visible: category.is_visible } : row)),
+      )
+      alert(error.message || 'Не удалось изменить видимость категории')
+    }
+  }
+
   const withImagesCount = rows.filter((row) => row.image_url).length
+  const visibleCount = rows.filter((row) => row.is_visible !== false).length
   const isReorderLocked = search.trim().length > 0 || activeParentId === ''
 
   return (
@@ -271,6 +294,11 @@ export default function CategoriesPage() {
               <div className={styles.statValue}>{rows.length - withImagesCount}</div>
               <div className={styles.statMeta}>Можно догрузить через редактирование или раздел фото.</div>
             </div>
+            <div className={styles.statCard}>
+              <div className={styles.statLabel}>Видны на сайте</div>
+              <div className={styles.statValue}>{visibleCount}</div>
+              <div className={styles.statMeta}>Скрытые папки не отображаются вместе со всей веткой.</div>
+            </div>
           </div>
 
           {q.isLoading ? <div className={styles.inlineNotice}>Загрузка категорий...</div> : null}
@@ -311,6 +339,14 @@ export default function CategoriesPage() {
                   <div className={styles.categoryCardBody}>
                     <h3>{category.title}</h3>
                     <p>{category.slug || 'slug не указан'}</p>
+                    <button
+                      type="button"
+                      className={`${category.is_visible === false ? styles.statusCancelled : styles.statusCompleted} ${styles.statusButton}`}
+                      onClick={() => handleToggleVisibility(category)}
+                      title={category.is_visible === false ? 'Показать папку на сайте' : 'Скрыть папку с сайта'}
+                    >
+                      {category.is_visible === false ? 'Скрыта' : 'Видна'}
+                    </button>
                   </div>
 
                   <div className={styles.categoryMetaGrid}>
@@ -329,6 +365,10 @@ export default function CategoriesPage() {
                     <span>
                       <CatalogIcon className={styles.iconSvgSmall} />
                       {category.parent_id ? titleMap.get(category.parent_id) || 'Родитель не найден' : 'Корневая'}
+                    </span>
+                    <span>
+                      <CatalogIcon className={styles.iconSvgSmall} />
+                      {category.is_visible === false ? 'Скрыта с сайта' : 'Показывается на сайте'}
                     </span>
                   </div>
 

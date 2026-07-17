@@ -7,6 +7,7 @@ export type CatalogCategory = {
   title: string
   parent_id: string | null
   image_url: string | null
+  is_visible: boolean
   sort: number | null
 }
 
@@ -20,6 +21,7 @@ const normalizeCategory = (item: Partial<CatalogCategory>, index: number): Catal
   title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Без названия',
   parent_id: typeof item.parent_id === 'string' ? item.parent_id : null,
   image_url: typeof item.image_url === 'string' ? item.image_url : null,
+  is_visible: item.is_visible !== false,
   sort: typeof item.sort === 'number' ? item.sort : null,
 })
 

@@ -1286,6 +1286,7 @@
 .categoryCardBody {
   display: grid;
   gap: 6px;
+  justify-items: start;
 }
 
 .categoryCardBody h3 {
@@ -1406,6 +1407,15 @@
   border-color: rgba(47, 107, 79, 0.18);
   background: rgba(47, 107, 79, 0.06);
   color: var(--admin-success);
+}
+
+.bulkErrorList {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--admin-danger);
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .emptyState {

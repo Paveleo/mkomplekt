@@ -134,6 +134,7 @@ class CategoryPayloadSerializer(serializers.Serializer):
     title = serializers.CharField()
     parent_id = serializers.UUIDField(required=False, allow_null=True)
     image_url = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_visible = serializers.BooleanField(required=False)
     slug = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     sort = serializers.IntegerField(required=False, allow_null=True)
 

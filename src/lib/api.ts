@@ -25,6 +25,9 @@ function extractErrorDetail(payload: unknown): string | undefined {
   }
 
   if (typeof payload === 'string') {
+    if (/<\/?[a-z][\s\S]*>/i.test(payload)) {
+      return undefined;
+    }
     return payload || undefined;
   }
 
@@ -75,7 +78,13 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   if (!response.ok) {
     const detail = extractErrorDetail(payload);
-    const error = new Error(detail || 'Request failed') as ApiError;
+    const fallback =
+      response.status === 404
+        ? 'API endpoint не найден. Обновите backend на сервере и перезапустите контейнеры.'
+        : response.status >= 500
+          ? 'Сервер временно не смог обработать запрос. Проверьте backend-логи.'
+          : 'Request failed';
+    const error = new Error(detail || fallback) as ApiError;
 
     error.status = response.status;
     error.detail = detail;

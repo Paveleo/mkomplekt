@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Case, IntegerField, Prefetch, Q, When
+from django.db.models import Case, IntegerField, Max, Prefetch, Q, When
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, parser_classes, permission_classes
@@ -194,8 +194,18 @@ def serialize_category(request, category: Category, *, admin: bool = False) -> d
         "title": category.title,
         "parent_id": str(category.parent_id) if category.parent_id else None,
         "image_url": category.image_url if admin else build_media_url(request, category.image_url),
+        "is_visible": category.is_visible,
         "sort": category.sort,
     }
+
+
+def is_category_visible_in_catalog(category: Category) -> bool:
+    current: Category | None = category
+    while current is not None:
+        if not current.is_visible:
+            return False
+        current = current.parent
+    return True
 
 
 def serialize_category_tree(request, category: Category, by_parent: dict[str, list[Category]]) -> dict:
@@ -584,25 +594,25 @@ def admin_me_view(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def root_categories_view(request):
-    rows = Category.objects.filter(parent__isnull=True).order_by("sort", "title")
+    rows = Category.objects.filter(parent__isnull=True, is_visible=True).order_by("sort", "title")
     return Response([serialize_category(request, category) for category in rows])
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def children_categories_view(request, slug: str):
-    parent = Category.objects.filter(slug=slug).first()
-    if not parent:
+    parent = Category.objects.select_related("parent").filter(slug=slug).first()
+    if not parent or not is_category_visible_in_catalog(parent):
         return Response([])
-    rows = Category.objects.filter(parent=parent).order_by("sort", "title")
+    rows = Category.objects.filter(parent=parent, is_visible=True).order_by("sort", "title")
     return Response([serialize_category(request, category) for category in rows])
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def category_detail_view(request, slug: str):
-    category = Category.objects.filter(slug=slug).first()
-    if not category:
+    category = Category.objects.select_related("parent").filter(slug=slug).first()
+    if not category or not is_category_visible_in_catalog(category):
         return Response({"detail": "CATEGORY_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
     return Response(serialize_category(request, category))
 
@@ -610,7 +620,7 @@ def category_detail_view(request, slug: str):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def catalog_tree_view(request):
-    rows = list(Category.objects.all().order_by("sort", "title"))
+    rows = list(Category.objects.filter(is_visible=True).order_by("sort", "title"))
     by_parent: dict[str, list[Category]] = {}
     roots: list[Category] = []
 
@@ -628,8 +638,8 @@ def catalog_tree_view(request):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def products_by_category_view(request, slug: str):
-    category = Category.objects.filter(slug=slug).first()
-    if not category:
+    category = Category.objects.select_related("parent").filter(slug=slug).first()
+    if not category or not is_category_visible_in_catalog(category):
         return Response([])
 
     rows = (
@@ -645,10 +655,11 @@ def products_by_category_view(request, slug: str):
 def product_details_view(request, slug: str):
     product = (
         Product.objects.filter(slug=slug)
+        .select_related("category", "category__parent")
         .prefetch_related("images")
         .first()
     )
-    if not product:
+    if not product or not product.is_published or not is_category_visible_in_catalog(product.category):
         return Response({"detail": "PRODUCT_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
 
     return Response(
@@ -1101,6 +1112,7 @@ def admin_categories_view(request):
         title=title,
         parent=parent,
         image_url=None,
+        is_visible=serializer.validated_data.get("is_visible", True),
         slug=make_unique_slug(Category, slug_source),
         sort=serializer.validated_data.get("sort") or 0,
     )
@@ -1122,6 +1134,7 @@ def admin_categories_options_view(request):
                 "id": str(category.id),
                 "title": category.title,
                 "parent_id": str(category.parent_id) if category.parent_id else None,
+                "is_visible": category.is_visible,
             }
             for category in rows
         ]
@@ -1174,12 +1187,23 @@ def admin_category_detail_view(request, category_id):
     category.title = title
     category.parent = parent
     category.slug = make_unique_slug(Category, slug_source, instance_pk=category.id)
+    category.is_visible = serializer.validated_data.get("is_visible", category.is_visible)
     if serializer.validated_data.get("sort") is not None:
         category.sort = serializer.validated_data["sort"]
     category.image_url = materialize_category_image(str(category.id), image_url) if image_url else None
     if not image_url:
         remove_category_media(str(category.id))
     category.save()
+    return Response(serialize_category(request, category, admin=True))
+
+
+@api_view(["PUT"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+def admin_category_visibility_view(request, category_id):
+    category = get_object_or_404(Category, pk=category_id)
+    category.is_visible = bool_from_value(request.data.get("is_visible"), default=not category.is_visible)
+    category.save(update_fields=["is_visible"])
     return Response(serialize_category(request, category, admin=True))
 
 
@@ -1971,6 +1995,145 @@ def admin_products_view(request):
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     product.refresh_from_db()
     return Response(serialize_product(request, product))
+
+
+def split_bulk_product_line(line: str) -> list[str]:
+    if "\t" in line:
+        separator = "\t"
+    elif ";" in line:
+        separator = ";"
+    elif "|" in line:
+        separator = "|"
+    else:
+        separator = None
+
+    if separator:
+        return [part.strip() for part in line.split(separator)]
+    return [line.strip()]
+
+
+def bulk_decimal_or_none(value) -> Decimal | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    text = re.sub(r"[^\d,.\-]", "", text.replace(" ", ""))
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".")
+    else:
+        text = text.replace(",", ".")
+    return decimal_or_none(text)
+
+
+def bulk_column(columns: list[str], index: int) -> str:
+    return columns[index].strip() if len(columns) > index else ""
+
+
+@api_view(["POST"])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([IsAuthenticated, IsAdminUserCookie])
+@parser_classes([JSONParser])
+def admin_products_bulk_view(request):
+    category_id = str(request.data.get("category_id") or "").strip()
+    text = str(request.data.get("text") or "").strip()
+    default_published = bool_from_value(request.data.get("is_published"), default=True)
+
+    if not category_id:
+        return Response({"detail": "CATEGORY_REQUIRED"}, status=status.HTTP_400_BAD_REQUEST)
+    if not text:
+        return Response({"detail": "PRODUCTS_TEXT_REQUIRED"}, status=status.HTTP_400_BAD_REQUEST)
+
+    category = Category.objects.filter(pk=category_id).first()
+    if not category:
+        return Response({"detail": "CATEGORY_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
+
+    raw_lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(raw_lines) > 500:
+        return Response({"detail": "TOO_MANY_PRODUCTS"}, status=status.HTTP_400_BAD_REQUEST)
+
+    stats = {
+        "created": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": [],
+    }
+    next_sort = (Product.objects.filter(category=category).aggregate(max_sort=Max("sort"))["max_sort"] or 0) + 1
+
+    for row_number, raw_line in enumerate(raw_lines, start=1):
+        columns = split_bulk_product_line(raw_line)
+        title = bulk_column(columns, 0)
+        if not title:
+            stats["skipped"] += 1
+            stats["errors"].append({"row": row_number, "detail": "TITLE_REQUIRED"})
+            continue
+
+        unit = bulk_column(columns, 2) or None
+        size = bulk_column(columns, 3) or None
+        color = bulk_column(columns, 5) or None
+        sku = bulk_column(columns, 6) or None
+        material = bulk_column(columns, 7) or None
+        description = bulk_column(columns, 8) or None
+
+        try:
+            price = bulk_decimal_or_none(bulk_column(columns, 1))
+            thickness = bulk_decimal_or_none(bulk_column(columns, 4))
+        except ValueError:
+            stats["skipped"] += 1
+            stats["errors"].append({"row": row_number, "title": title, "detail": "INVALID_DECIMAL"})
+            continue
+
+        product = Product.objects.filter(sku=sku).first() if sku else None
+        if product is None:
+            product = Product.objects.filter(category=category, title=title).first()
+
+        if product:
+            product.title = title
+            product.category = category
+            product.price = price
+            product.unit = unit
+            product.size = size
+            product.thickness = thickness
+            product.color = color
+            product.sku = sku
+            product.material = material
+            product.description = description
+            product.is_published = default_published
+            product.slug = make_unique_slug(Product, f"{category.slug}-{title}", instance_pk=product.pk)
+            try:
+                with transaction.atomic():
+                    product.save()
+            except Exception:
+                stats["skipped"] += 1
+                stats["errors"].append({"row": row_number, "title": title, "detail": "SAVE_FAILED"})
+                continue
+            stats["updated"] += 1
+            continue
+
+        try:
+            with transaction.atomic():
+                Product.objects.create(
+                    title=title,
+                    sku=sku,
+                    slug=make_unique_slug(Product, f"{category.slug}-{title}"),
+                    category=category,
+                    price=price,
+                    size=size,
+                    thickness=thickness,
+                    color=color,
+                    unit=unit,
+                    material=material,
+                    description=description,
+                    is_published=default_published,
+                    sort=next_sort,
+                )
+        except Exception:
+            stats["skipped"] += 1
+            stats["errors"].append({"row": row_number, "title": title, "detail": "SAVE_FAILED"})
+            continue
+
+        next_sort += 1
+        stats["created"] += 1
+
+    return Response(stats)
 
 
 @api_view(["GET", "PUT", "DELETE"])

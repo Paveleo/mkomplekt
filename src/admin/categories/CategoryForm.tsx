@@ -15,6 +15,7 @@ type Form = {
   title: string;
   parent_id?: string;
   image_url?: string;
+  is_visible?: boolean;
   slug?: string;
 };
 
@@ -24,6 +25,7 @@ type Category = {
   slug: string | null;
   parent_id: string | null;
   image_url?: string | null;
+  is_visible?: boolean;
   sort?: number | null;
 };
 
@@ -48,10 +50,11 @@ export default function CategoryForm({
         title: editing.title ?? '',
         parent_id: editing.parent_id ?? undefined,
         image_url: editing.image_url ?? '',
+        is_visible: editing.is_visible ?? true,
         slug: editing.slug ?? '',
       });
     } else {
-      reset({ title: '', parent_id: undefined, image_url: '', slug: '' });
+      reset({ title: '', parent_id: undefined, image_url: '', is_visible: true, slug: '' });
     }
   }, [editing, reset]);
 
@@ -80,6 +83,7 @@ export default function CategoryForm({
       title: trimmedTitle,
       parent_id: values.parent_id || null,
       image_url: values.image_url || null,
+      is_visible: values.is_visible ?? true,
       slug: values.slug && values.slug.trim() ? slugify(values.slug) : slugify(trimmedTitle),
     };
 
@@ -166,6 +170,16 @@ export default function CategoryForm({
             </span>
           </label>
         </div>
+
+        <label className={styles.switchRow}>
+          <input type="checkbox" {...register('is_visible')} />
+          <span className={styles.switchLabel}>
+            <span className={styles.switchTitle}>Показывать папку на сайте</span>
+            <span className={styles.switchText}>
+              Если выключить, эта категория, ее подкатегории и товары внутри ветки скрываются из публичного каталога.
+            </span>
+          </span>
+        </label>
 
         {previewImageUrl ? (
           <div className={styles.previewCard}>
